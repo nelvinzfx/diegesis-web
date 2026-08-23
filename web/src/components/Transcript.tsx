@@ -13,7 +13,6 @@ import type { Turn, TurnVariant } from '../lib/types';
 import { useActiveCampaign } from '../state/ActiveCampaignContext';
 import { PrimaryButton } from './common';
 import { TurnBlock } from './TurnBlock';
-import { ErrorBanner } from './InspectorPanel';
 
 const FOLLOW_THRESHOLD_PX = 48;
 
@@ -28,8 +27,6 @@ export function Transcript(): ReactNode {
     campaign,
     npcs,
     refreshTurns,
-    streamError,
-    dismissStreamError,
   } = useActiveCampaign();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [following, setFollowing] = useState(true);
@@ -67,12 +64,6 @@ export function Transcript(): ReactNode {
         className="h-full overflow-y-auto overscroll-contain"
       >
         {apiKeyMissing && <ApiKeyWarning />}
-
-        {streamError !== null && (
-          <div className="mx-auto max-w-[720px] px-6 pt-4">
-            <ErrorBanner message={streamError} onDismiss={dismissStreamError} />
-          </div>
-        )}
 
         {turns.length === 0 && !appendingLive ? (
           campaign !== null && hasStoredOpening(campaign, npcs) ? (

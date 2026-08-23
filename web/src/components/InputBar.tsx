@@ -9,6 +9,7 @@ import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 
 import { CornerDownLeft, Square, X } from 'lucide-react';
 
 import { cn } from '../lib/cn';
+import { useMediaQuery } from '../lib/useMediaQuery';
 import { useActiveCampaign } from '../state/ActiveCampaignContext';
 
 export function InputBar(): ReactNode {
@@ -16,6 +17,7 @@ export function InputBar(): ReactNode {
     useActiveCampaign();
   const [text, setText] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const coarsePointer = useMediaQuery('(pointer: coarse)');
   const seededEditRef = useRef<number | null>(null);
 
   const busy = streaming !== null;
@@ -62,7 +64,13 @@ export function InputBar(): ReactNode {
   };
 
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>): void => {
-    if (event.key === 'Enter' && !event.shiftKey) {
+    // IME composition (mobile keyboards) must commit before Enter can mean
+    // "send": otherwise the uncommitted text is invisible to state and the
+    // server receives an empty input.
+    if (event.nativeEvent.isComposing) return;
+    // Touch devices (coarse pointer) get Enter = newline; sending is the
+    // button's job there. Desktop keeps Enter = send, Shift+Enter = newline.
+    if (event.key === 'Enter' && !event.shiftKey && !coarsePointer) {
       event.preventDefault();
       submit();
     } else if (event.key === 'Escape' && busy) {

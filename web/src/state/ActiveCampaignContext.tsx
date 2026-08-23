@@ -19,6 +19,8 @@ import {
   type ReactNode,
 } from 'react';
 
+import { toast } from '@heroui/react';
+
 import * as api from '../lib/api';
 import type {
   Campaign,
@@ -323,7 +325,7 @@ export function ActiveCampaignProvider({ children }: { children: ReactNode }) {
     async (playerInput: string, targetTurnIndex: number | null) => {
       if (abortRef.current !== null) return;
       if (campaignId === null) {
-        setStreamError('No campaign selected. Create or switch to one from the rail first.');
+        toast.warning('No campaign selected. Create or switch to one from the rail first.');
         return;
       }
       const controller = new AbortController();
@@ -373,7 +375,9 @@ export function ActiveCampaignProvider({ children }: { children: ReactNode }) {
           result.terminal.data !== null &&
           typeof (result.terminal.data as Record<string, unknown>)['message'] === 'string'
         ) {
-          setStreamError((result.terminal.data as Record<string, unknown>)['message'] as string);
+          const message = (result.terminal.data as Record<string, unknown>)['message'] as string;
+          setStreamError(message);
+          toast.danger(message, { timeout: 8000 });
         }
         if (
           !controller.signal.aborted &&
@@ -396,7 +400,9 @@ export function ActiveCampaignProvider({ children }: { children: ReactNode }) {
         }
       } catch (error) {
         if (!controller.signal.aborted) {
-          setStreamError(error instanceof Error ? error.message : String(error));
+          const message = error instanceof Error ? error.message : String(error);
+          setStreamError(message);
+          toast.danger(message, { timeout: 8000 });
         }
       }
 
