@@ -1,0 +1,97 @@
+@import "tailwindcss";
+@import "@heroui/styles";
+
+/*
+ * Diegesis theme tokens: the single source of truth.
+ * Dark-only, pure black canvas, white-alpha hairlines.
+ * Documented in docs/ui-theme.md.
+ */
+:root {
+  --dg-bg: #000000;
+  --dg-surface-1: #0a0a0a;
+  --dg-surface-2: #111113;
+  --dg-surface-3: #17171a;
+
+  --dg-line: rgba(255, 255, 255, 0.08);
+  --dg-line-strong: rgba(255, 255, 255, 0.14);
+
+  --dg-text-hi: #fafafa;
+  --dg-text-mid: #a1a1aa;
+  --dg-text-low: #52525b;
+
+  --dg-accent-amber: #ffb020; /* mechanics / dice only */
+  --dg-accent-cyan: #22d3ee; /* NPC-related UI only */
+  --dg-accent-red: #f87171; /* danger / destructive only */
+  --dg-accent-green: #34d399; /* success / confirmation only */
+}
+
+/* Expose as Tailwind utilities: bg-bg, bg-surface-1, border-line,
+   border-line-strong, text-text-hi/mid/low, text-accent-amber, ... */
+@theme inline {
+  --color-bg: var(--dg-bg);
+  --color-surface-1: var(--dg-surface-1);
+  --color-surface-2: var(--dg-surface-2);
+  --color-surface-3: var(--dg-surface-3);
+
+  --color-line: var(--dg-line);
+  --color-line-strong: var(--dg-line-strong);
+
+  --color-text-hi: var(--dg-text-hi);
+  --color-text-mid: var(--dg-text-mid);
+  --color-text-low: var(--dg-text-low);
+
+  --color-accent-amber: var(--dg-accent-amber);
+  --color-accent-cyan: var(--dg-accent-cyan);
+  --color-accent-red: var(--dg-accent-red);
+  --color-accent-green: var(--dg-accent-green);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background-color: var(--dg-bg);
+}
+
+/* HeroUI v3 dark theme remapped onto Diegesis tokens (dark-only app).
+   No runtime theme switching exists anywhere in this app. */
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --background: var(--dg-bg);
+  --foreground: var(--dg-text-hi);
+
+  --surface: var(--dg-surface-1);
+  --surface-foreground: var(--dg-text-hi);
+
+  --overlay: var(--dg-surface-2);
+  --overlay-foreground: var(--dg-text-hi);
+
+  --muted: var(--dg-text-mid);
+
+  --default: var(--dg-surface-3);
+  --default-foreground: var(--dg-text-hi);
+
+  --field-background: var(--dg-surface-1);
+  --field-foreground: var(--dg-text-hi);
+  --field-placeholder: var(--dg-text-low);
+  --field-border: transparent;
+
+  /* hairlines only, never solid grey borders */
+  --border: var(--dg-line);
+  --separator: var(--dg-line);
+
+  /* primary action: white on black (vercel style); accents stay semantic */
+  --accent: var(--dg-text-hi);
+  --accent-foreground: #000000;
+
+  --focus: var(--dg-line-strong);
+  --link: var(--dg-text-hi);
+
+  --success: var(--dg-accent-green);
+  --warning: var(--dg-accent-amber);
+  --danger: var(--dg-accent-red);
+}

@@ -1,0 +1,8 @@
+Diegesis is a GM/campaign narrative engine for tabletop-style roleplay.
+A turn runs through a five-stage AI pipeline (router, deck mechanics,
+plot planning, NPC agency, scene writing) plus post-turn memory
+extraction, under a hard visibility invariant: the scene stage only
+ever sees what the player character has witnessed. This repository is
+the web version; the engine concept and pipeline are ported from the
+nelvinzfx/diegesis Android project by the same author, and remain under
+the GNU Affero General Public License v3.0.

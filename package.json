@@ -1,0 +1,25 @@
+{
+  "name": "diegesis-web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Diegesis: GM campaign narrative engine for tabletop-style roleplay (web client + server). Engine concept and pipeline ported from the nelvinzfx/diegesis Android app.",
+  "license": "AGPL-3.0",
+  "workspaces": [
+    "server",
+    "web"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "concurrently -n server,web -c blue,magenta \"npm run dev -w @diegesis/server\" \"npm run dev -w @diegesis/web\"",
+    "dev:server": "npm run dev -w @diegesis/server",
+    "dev:web": "npm run dev -w @diegesis/web",
+    "build": "npm run build -w @diegesis/server && npm run build -w @diegesis/web",
+    "typecheck": "npm run typecheck -w @diegesis/server && npm run typecheck -w @diegesis/web",
+    "test": "npm run test -w @diegesis/server"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.5"
+  }
+}
