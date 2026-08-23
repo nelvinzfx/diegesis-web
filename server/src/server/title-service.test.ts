@@ -35,7 +35,7 @@ function turn(): Turn {
         mechanicResults: [],
         interrupted: false,
         timestamp: 0,
-        stageEvents: [],
+        stageEvents: [], tension: null,
         reasoning: null,
       },
     ],

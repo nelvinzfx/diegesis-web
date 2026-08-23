@@ -70,6 +70,8 @@ export interface TurnVariant {
   timestamp: number;
   stageEvents: string[];
   reasoning: string | null;
+  /** Beat pacing judgment (escalate | hold | release); null when unset. */
+  tension: string | null;
 }
 
 export interface Turn {

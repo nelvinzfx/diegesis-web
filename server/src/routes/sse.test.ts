@@ -299,7 +299,7 @@ describe('POST /api/campaigns/:id/turns (SSE)', () => {
           mechanicResults: [],
           interrupted: false,
           timestamp: 0,
-          stageEvents: [],
+          stageEvents: [], tension: null,
           reasoning: null,
         },
       ],

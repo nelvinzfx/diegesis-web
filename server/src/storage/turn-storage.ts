@@ -54,7 +54,14 @@ export class TurnStorage {
   }
 
   async get(campaignId: string, index: number): Promise<Turn | null> {
-    return readJsonOrNull<Turn>(this.turnFile(campaignId, index));
+    const turn = await readJsonOrNull<Turn>(this.turnFile(campaignId, index));
+    // Variants written before the tension field existed load with it as null.
+    if (turn !== null) {
+      for (const variant of turn.variants) {
+        if (variant.tension === undefined) variant.tension = null;
+      }
+    }
+    return turn;
   }
 
   async save(campaignId: string, turn: Turn): Promise<void> {

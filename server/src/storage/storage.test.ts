@@ -165,7 +165,7 @@ describe('TurnStorage', () => {
           mechanicResults: [],
           interrupted: false,
           timestamp: 1,
-          stageEvents: [],
+          stageEvents: [], tension: null,
           reasoning: null,
         },
       ],
@@ -181,7 +181,7 @@ describe('TurnStorage', () => {
       mechanicResults: [],
       interrupted: true,
       timestamp: 2,
-      stageEvents: [],
+      stageEvents: [], tension: null,
       reasoning: null,
     });
 
@@ -194,7 +194,7 @@ describe('TurnStorage', () => {
     await expect(hub.turns.appendVariant('c1', 9, {
       id: 'v3', synopsis: '', sceneOutput: '', routerDecision: null,
       presentNpcIds: [], mechanicResults: [], interrupted: false, timestamp: 3,
-      stageEvents: [], reasoning: null,
+      stageEvents: [], tension: null, reasoning: null,
     })).rejects.toThrow(/not found/);
   });
 

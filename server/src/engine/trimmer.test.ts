@@ -17,7 +17,7 @@ function turnOf(index: number, input: string, output: string): Turn {
         mechanicResults: [],
         interrupted: false,
         timestamp: 0,
-        stageEvents: [],
+        stageEvents: [], tension: null,
         reasoning: null,
       },
     ],

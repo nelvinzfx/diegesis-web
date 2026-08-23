@@ -105,6 +105,7 @@ function IdleInspector(): ReactNode {
         <>
           <Section title="Synopsis">
             <p className="text-sm leading-relaxed text-text-mid">{variant.synopsis || '(none)'}</p>
+            <TensionChip value={variant.tension} />
             {variant.interrupted && (
               <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.14em] text-accent-amber">
                 Interrupted
@@ -153,6 +154,28 @@ function Section({ title, children }: { title: string; children: ReactNode }): R
       <SectionLabel>{title}</SectionLabel>
       <div className="mt-2">{children}</div>
     </section>
+  );
+}
+
+// ---- tension chip -------------------------------------------------------------
+
+/**
+ * Beat pacing judgment as a small pill. Amber for escalate, green for
+ * release, neutral hairline for hold. Nothing rendered when unset.
+ */
+function TensionChip({ value }: { value: string | null | undefined }): ReactNode {
+  if (value == null || value.length === 0) return null;
+  const tone =
+    value === 'escalate'
+      ? 'border-accent-amber/40 text-accent-amber'
+      : value === 'release'
+        ? 'border-accent-green/40 text-accent-green'
+        : 'border-line text-text-low';
+  return (
+    <p className={cn('mt-2 inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5', tone)}>
+      <span className="font-mono text-[10px] uppercase tracking-[0.14em]">Tension</span>
+      <span className="font-mono text-[11px] lowercase">{value}</span>
+    </p>
   );
 }
 

@@ -23,7 +23,7 @@ function turn(
         mechanicResults: [],
         interrupted: false,
         timestamp: 0,
-        stageEvents: [],
+        stageEvents: [], tension: null,
         reasoning: null,
       },
     ],
@@ -40,7 +40,7 @@ function variantOf(overrides: Partial<Turn['variants'][number]>): Turn['variants
     mechanicResults: [],
     interrupted: false,
     timestamp: 0,
-    stageEvents: [],
+    stageEvents: [], tension: null,
     reasoning: null,
     ...overrides,
   };
@@ -71,6 +71,7 @@ function assemble(options: {
 }) {
   return VisibilityContextAssembler.assemble({
     synopsis: options.synopsis ?? 'fresh synopsis',
+    tension: null,
     location: options.location ?? 'The Docks',
     mechanicResults: [],
     presentNpcIds: options.presentNpcIds,
@@ -279,6 +280,7 @@ describe('empty playerInput turns (opening scene)', () => {
     const npcs: Npc[] = [];
     const context = VisibilityContextAssembler.assemble({
       synopsis: 'beat',
+      tension: null,
       location: 'The harbor',
       mechanicResults: [],
       presentNpcIds: [],

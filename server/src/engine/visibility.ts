@@ -30,6 +30,8 @@ export interface HistoryEntry {
 
 export interface SceneContext {
   synopsis: string;
+  /** This beat's pacing judgment (escalate | hold | release); null = unset. */
+  tension: string | null;
   location: string;
   mechanicOutcomes: MechanicResult[];
   presentNpcs: NpcPayload[];
@@ -40,6 +42,7 @@ export interface SceneContext {
 
 export interface AssembleInput {
   synopsis: string;
+  tension: string | null;
   location: string;
   mechanicResults: MechanicResult[];
   presentNpcIds: string[];
@@ -72,6 +75,7 @@ export function assemble(input: AssembleInput): SceneContext {
 
   return {
     synopsis: input.synopsis,
+    tension: input.tension,
     location,
     mechanicOutcomes: input.mechanicResults,
     presentNpcs: npcPayloads,
@@ -123,8 +127,11 @@ function formatAgency(npc: Npc): string {
 export function formatPrompt(context: SceneContext): string {
   const sections: string[] = [];
 
-  // 1. Synopsis (+ location when the scene has one)
+  // 1. Synopsis (+ pacing judgment + location when the scene has one)
   sections.push(`## Synopsis\n${context.synopsis}`);
+  if (context.tension !== null && context.tension.length > 0) {
+    sections.push(`Beat pacing: ${context.tension}`);
+  }
   if (context.location.length > 0) {
     sections.push(`## Location\n${context.location}`);
   }

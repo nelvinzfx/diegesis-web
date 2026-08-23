@@ -17,7 +17,7 @@ Output markdown prose only — no headers, no meta commentary.`;
 
 /**
  * System prompt (narrator voice) with template override support. Variables:
- * {{playerInput}}, {{synopsis}}, {{location}}, {{presentNpcs}}. An override
+ * {{playerInput}}, {{synopsis}}, {{tension}}, {{location}}, {{presentNpcs}}. An override
  * replaces the narrator voice entirely; without one the campaign narrator
  * voice (or the shipped default) is used verbatim.
  */
@@ -29,6 +29,7 @@ export function resolveSystemPrompt(
   return resolvePrompt(getTemplate, 'scene', narratorVoice.trim(), {
     playerInput: context.playerInput,
     synopsis: context.synopsis,
+    tension: context.tension ?? '',
     location: context.location,
     presentNpcs: context.presentNpcs.map((npc) => npc.name).join(', '),
   }).trim();

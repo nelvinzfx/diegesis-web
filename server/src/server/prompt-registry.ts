@@ -36,7 +36,7 @@ export const PROMPT_STAGES: PromptStageInfo[] = [
     key: 'plot',
     label: 'Plot',
     description:
-      'Plans the beat: synopsis, present NPCs, tracker deltas. Reply is parsed as JSON.',
+      'Plans the beat: synopsis, pacing tension, present NPCs, tracker deltas. Reply is parsed as JSON.',
     variables: STAGE_VARIABLES.plot,
     default: PlotStage.DEFAULT_SYSTEM_PROMPT,
   },

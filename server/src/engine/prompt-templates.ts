@@ -42,9 +42,9 @@ export function getterFromOverrides(
 /** Variables each stage's template may reference. Keep this list short. */
 export const STAGE_VARIABLES: Record<StageKey, readonly string[]> = {
   router: ['playerInput', 'location', 'presentNpcs'],
-  plot: ['sessionPlan', 'storySoFar'],
+  plot: ['sessionPlan', 'storySoFar', 'tensionHistory'],
   agency: ['npcName', 'npcDescription', 'personality', 'goal', 'stance', 'willActOn', 'witnessed'],
-  scene: ['playerInput', 'synopsis', 'location', 'presentNpcs'],
+  scene: ['playerInput', 'synopsis', 'tension', 'location', 'presentNpcs'],
   'memory-extraction': ['playerInput', 'synopsis', 'sceneOutput'],
   'tracker-update': [
     'previousTracker',

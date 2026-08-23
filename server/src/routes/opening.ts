@@ -128,6 +128,7 @@ function openingVariant(campaign: Campaign, text: string): TurnVariant {
     timestamp: Date.now(),
     stageEvents: ['opening: created from the stored opening message'],
     reasoning: null,
+    tension: null,
   };
 }
 

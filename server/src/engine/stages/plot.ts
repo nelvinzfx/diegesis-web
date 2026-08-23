@@ -5,7 +5,14 @@
 
 import type { AiCaller } from '../ai-caller.js';
 import { resolvePrompt, type PromptTemplateGetter } from '../prompt-templates.js';
-import type { MechanicResult, MemoryEntry, PlotOutput, RouterDecision, TrackerUpdate } from '../../shared/types.js';
+import {
+  isTensionValue,
+  type MechanicResult,
+  type MemoryEntry,
+  type PlotOutput,
+  type RouterDecision,
+  type TrackerUpdate,
+} from '../../shared/types.js';
 import { arrayOrEmpty, boolOrDefault, asRecord, optString, requireString } from './decode.js';
 
 /**
@@ -21,6 +28,7 @@ export const plotFallback: PlotOutput = {
   scene_change: false,
   location: null,
   tracker_updates: [],
+  tension: null,
 };
 
 export const DEFAULT_SYSTEM_PROMPT = `You are the plot engine of a tabletop campaign. You decide WHAT happens, never how it is told.
@@ -33,33 +41,54 @@ Story so far (compressed):
 
 Rules:
 - Advance the arc. Do not stall, do not repeat beats.
-- End every beat ON MAXIMUM CONFLICT. Whatever the situation, add pressure. Slice of life: add friction. Conversation: escalate.
+- Pace the tension deliberately. Judge each beat as "escalate", "hold", or "release": escalate only when the story earns more pressure, never chain escalate after escalate without cause; after a peak, let the beat release and breathe; hold mid-scene to let a moment land. Choose the beat's tension to fit the recent tension history.
 - If mechanic results are provided, the synopsis MUST honor their tiers exactly.
 - Nominate which NPCs are physically present. NPCs not listed leave the scene.
 - Reply with JSON only.`;
 
 /**
  * System prompt with template override support. Variables:
- * {{sessionPlan}}, {{storySoFar}}.
+ * {{sessionPlan}}, {{storySoFar}}, {{tensionHistory}}.
+ *
+ * The JSON output contract deliberately does NOT live here: it rides the
+ * code-built user payload (buildUserPayload) so a template override can
+ * change guidance/voice but can never break the parse contract.
  */
 export function resolveSystemPrompt(
   getTemplate: PromptTemplateGetter | null | undefined,
   sessionPlan: string,
   recentSummary: string,
+  tensionHistory: readonly string[] = [],
 ): string {
   const storySoFar = recentSummary.length > 0 ? recentSummary : 'Campaign just started.';
   return resolvePrompt(getTemplate, 'plot', DEFAULT_SYSTEM_PROMPT, {
     sessionPlan,
     storySoFar,
+    tensionHistory: tensionHistory.join('\n'),
   });
 }
 
+/**
+ * Code-built user payload. The JSON contract at the bottom is the parse
+ * contract; overrides to the system template cannot remove it.
+ *
+ * @param tensionHistory Recent per-turn tension lines, oldest first
+ */
 export function buildUserPayload(
   playerInput: string,
   mechanicResults: MechanicResult[],
   retrievedMemories: MemoryEntry[],
+  tensionHistory: readonly string[] = [],
 ): string {
   let payload = `Player action: ${playerInput}\n\n`;
+
+  if (tensionHistory.length > 0) {
+    payload += '## Recent tension\n';
+    for (const line of tensionHistory) {
+      payload += `- ${line}\n`;
+    }
+    payload += '\n';
+  }
 
   if (mechanicResults.length > 0) {
     payload += '## Mechanic Results (MUST honor these):\n';
@@ -77,9 +106,11 @@ export function buildUserPayload(
     payload += '\n';
   }
 
-  payload += `Reply with JSON:
+  payload += `Set "tension" to this beat's pacing: one of "escalate", "hold", or "release".
+Reply with JSON:
 {
   "synopsis": "2-6 sentences, what happens in this beat",
+  "tension": "hold",
   "present_npcs": ["npcId"],
   "scene_change": false,
   "location": null,
@@ -104,7 +135,13 @@ export function decodePlotOutput(raw: string): PlotOutput {
     scene_change: boolOrDefault(obj, 'scene_change', false),
     location: optString(obj, 'location') ?? null,
     tracker_updates: trackerUpdates,
+    tension: parseTension(obj),
   };
+}
+
+/** Valid tension passes through; missing/invalid becomes null. */
+function parseTension(obj: Record<string, unknown>): PlotOutput['tension'] {
+  return isTensionValue(obj['tension']) ? obj['tension'] : null;
 }
 
 function requireInt(obj: Record<string, unknown>, key: string): number {
@@ -122,12 +159,24 @@ export async function execute(
     routerDecision: RouterDecision | null;
     mechanicResults: MechanicResult[];
     retrievedMemories: MemoryEntry[];
+    /** Recent tension lines ("turn N: <value>") from stored variants, oldest first. */
+    tensionHistory?: readonly string[];
     getTemplate?: PromptTemplateGetter | null;
   },
 ): Promise<PlotOutput> {
   return aiCaller.generateStructured(
-    resolveSystemPrompt(input.getTemplate ?? null, input.sessionPlan, input.recentSummary),
-    buildUserPayload(input.playerInput, input.mechanicResults, input.retrievedMemories),
+    resolveSystemPrompt(
+      input.getTemplate ?? null,
+      input.sessionPlan,
+      input.recentSummary,
+      input.tensionHistory ?? [],
+    ),
+    buildUserPayload(
+      input.playerInput,
+      input.mechanicResults,
+      input.retrievedMemories,
+      input.tensionHistory ?? [],
+    ),
     decodePlotOutput,
     plotFallback,
   );

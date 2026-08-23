@@ -45,12 +45,27 @@ export interface TrackerUpdate {
   delta: number;
 }
 
+/** The three legal tension values: beat pacing judged by the plot stage. */
+export const TENSION_VALUES = ['escalate', 'hold', 'release'] as const;
+
+export type TensionValue = (typeof TENSION_VALUES)[number];
+
+export function isTensionValue(value: unknown): value is TensionValue {
+  return typeof value === 'string' && (TENSION_VALUES as readonly string[]).includes(value);
+}
+
 export interface PlotOutput {
   synopsis: string;
   present_npcs: string[];
   scene_change: boolean;
   location: string | null;
   tracker_updates: TrackerUpdate[];
+  /**
+   * This beat's pacing judgment: escalate | hold | release. Null when the
+   * model omitted it or wrote something invalid (the stage stays functional,
+   * tension is simply absent).
+   */
+  tension: TensionValue | null;
 }
 
 export interface MemoryEntry {
@@ -79,6 +94,13 @@ export interface TurnVariant {
   stageEvents: string[];
   /** Model reasoning streamed during the scene stage; null when none. */
   reasoning: string | null;
+  /**
+   * This beat's pacing judgment (escalate | hold | release) as decided by the
+   * plot stage and persisted per variant. Null for variants created before
+   * the field existed (storage normalizes missing -> null) or when the plot
+   * output carried no valid tension.
+   */
+  tension: string | null;
 }
 
 export interface Turn {

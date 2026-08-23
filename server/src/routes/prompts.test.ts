@@ -24,7 +24,13 @@ async function json<T>(res: globalThis.Response): Promise<T> {
   return (await res.json()) as T;
 }
 
-function mkTurn(index: number, playerInput: string, sceneOutput: string, npcIds: string[]): Turn {
+function mkTurn(
+  index: number,
+  playerInput: string,
+  sceneOutput: string,
+  npcIds: string[],
+  tension: string | null = null,
+): Turn {
   return {
     index,
     playerInput,
@@ -39,6 +45,7 @@ function mkTurn(index: number, playerInput: string, sceneOutput: string, npcIds:
         interrupted: false,
         timestamp: 1000 + index,
         stageEvents: [],
+        tension,
         reasoning: null,
       },
     ],
@@ -260,6 +267,54 @@ describe('prompt preview endpoint', () => {
     expect(preview.meta.turnsDropped).toBeGreaterThan(0);
     expect(preview.user).not.toContain('OLDEST-MARKER');
     expect(preview.system).toContain('You are the narrator of a tabletop campaign');
+  });
+
+  it('previews the plot stage with real tension history from stored variants', async () => {
+    const h = await fresh();
+    const port = await h.listen();
+    const base = `http://127.0.0.1:${port}`;
+
+    const campaign = await json<Campaign>(
+      await fetch(`${base}/api/campaigns`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ title: 'Tension Camp' }),
+      }),
+    );
+
+    await h.hub.turns.save(campaign.id, mkTurn(0, 'Open the door.', 'It creaks.', [], 'escalate'));
+    await h.hub.turns.save(campaign.id, mkTurn(1, 'Sit down.', 'You rest.', [], null));
+    await h.hub.turns.save(campaign.id, mkTurn(2, 'Look around.', 'All clear.', [], 'release'));
+
+    const preview = await json<{ system: string; user: string }>(
+      await fetch(`${base}/api/campaigns/${campaign.id}/prompt-preview?stage=plot`),
+    );
+
+    expect(preview.user).toContain('## Recent tension');
+    expect(preview.user).toContain('- turn 0: escalate');
+    expect(preview.user).toContain('- turn 2: release');
+    expect(preview.user).not.toContain('turn 1:');
+    expect(preview.user.indexOf('turn 0:')).toBeLessThan(preview.user.indexOf('turn 2:'));
+    // The parse contract rides the user payload.
+    expect(preview.user).toContain('Reply with JSON:');
+    expect(preview.user).toContain('"tension"');
+
+    // The registry lists the new template variables.
+    const stages = await json<
+      Array<{ key: string; variables: string[] }>
+    >(await fetch(`${base}/api/prompt-templates`));
+    expect(stages.find((s) => s.key === 'plot')?.variables).toEqual([
+      'sessionPlan',
+      'storySoFar',
+      'tensionHistory',
+    ]);
+    expect(stages.find((s) => s.key === 'scene')?.variables).toEqual([
+      'playerInput',
+      'synopsis',
+      'tension',
+      'location',
+      'presentNpcs',
+    ]);
   });
 
   it('previews non-scene stages and rejects bad requests', async () => {

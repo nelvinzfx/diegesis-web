@@ -9,6 +9,7 @@ import type {
   TurnVariant,
 } from '../shared/types.js';
 import type { RandomSource } from './deck.js';
+import type { PromptTemplateGetter } from './prompt-templates.js';
 
 // ---- deterministic RNG (stands in for Kotlin Random(seed)) -----------------
 
@@ -34,6 +35,8 @@ class FakeAiCaller implements AiCaller {
   proseCalls = 0;
   lastScenePrompt: string | null = null;
   lastSceneSystem: string | null = null;
+  /** Last user prompt seen per stage, for contract/history assertions. */
+  userPrompts: Partial<Record<StageName, string>> = {};
 
   constructor(
     public routerJson = '{"needs_check":false,"checks":[],"run_agency_update":false,"lore_query":null}',
@@ -55,12 +58,15 @@ class FakeAiCaller implements AiCaller {
   ): Promise<T> {
     let stage: StageName;
     if (/router/i.test(systemPrompt)) stage = 'router';
-    else if (/plot engine/i.test(systemPrompt)) stage = 'plot';
+    // Plot is recognized by the code-built user payload too (the "Player
+    // action:" section), so a junk template override cannot hide the stage.
+    else if (/plot engine/i.test(systemPrompt) || /Player action:/.test(_userPrompt)) stage = 'plot';
     else if (/inner life/i.test(systemPrompt)) stage = 'agency';
     else if (/Extract durable facts/i.test(systemPrompt)) stage = 'extraction';
     else if (/status board/i.test(systemPrompt)) stage = 'tracker';
     else stage = 'unknown';
     this.structuredCalls.push(stage);
+    this.userPrompts[stage] = _userPrompt;
 
     const payload =
       stage === 'router'
@@ -205,7 +211,11 @@ type FakeOverrides = {
 
 function rig(
   fakeOverrides: FakeOverrides = {},
-  options: { contextWindowTokens?: number; writeMaxTokens?: number } = {},
+  options: {
+    contextWindowTokens?: number;
+    writeMaxTokens?: number;
+    getTemplates?: PromptTemplateGetter;
+  } = {},
 ): Rig {
   const fake = new FakeAiCaller(
     (fakeOverrides['routerJson'] as string | undefined),
@@ -223,6 +233,7 @@ function rig(
     random: seededRandom(7),
     contextWindowTokens: options.contextWindowTokens ?? 32768,
     writeMaxTokens: options.writeMaxTokens ?? 8192,
+    getTemplates: options.getTemplates ?? null,
     makeId: (() => {
       let n = 0;
       return () => `test-id-${n++}`;
@@ -237,7 +248,11 @@ interface RigWithStores extends Rig {
 
 async function seedRig(
   fakeOverrides: FakeOverrides = {},
-  options: { contextWindowTokens?: number; writeMaxTokens?: number } = {},
+  options: {
+    contextWindowTokens?: number;
+    writeMaxTokens?: number;
+    getTemplates?: PromptTemplateGetter;
+  } = {},
 ): Promise<Rig & { stores: OrchestratorStores }> {
   const r = rig(fakeOverrides, options);
   await r.stores.saveCampaign(baseCampaign());
@@ -268,7 +283,7 @@ function variantOf(overrides: Partial<TurnVariant>): TurnVariant {
     mechanicResults: [],
     interrupted: false,
     timestamp: 0,
-    stageEvents: [],
+    stageEvents: [], tension: null,
     reasoning: null,
     ...overrides,
   };
@@ -872,5 +887,117 @@ describe('PipelineOrchestrator trackerState', () => {
     const campaign = (await stores.loadCampaign(campaignId))!;
     expect(campaign.trackerState).not.toBeNull();
     expect(campaign.trackerState!.updatedAtTurn).toBe(0);
+  });
+});
+
+describe('PipelineOrchestrator tension', () => {
+  const plotJsonWith = (tension: string) =>
+    `{"synopsis":"The room goes quiet.","present_npcs":[],"scene_change":false,"location":null,"tracker_updates":[],"tension":"${tension}"}`;
+
+  it('injects the recent tension history into the plot user prompt, oldest first, nulls skipped, capped at 5', async () => {
+    const { fake, stores, orch } = await seedRig();
+    // Turns 0-6; only some carry tension. The last 5 turns are 2..6.
+    const tensions: Array<string | null> = [
+      'escalate', // turn 0: outside the 5-turn window
+      null, // turn 1: skipped
+      'hold', // turn 2
+      'release', // turn 3
+      null, // turn 4: skipped
+      'escalate', // turn 5
+      'hold', // turn 6
+    ];
+    for (let i = 0; i < tensions.length; i++) {
+      await saveSeedTurn(stores, {
+        index: i,
+        playerInput: `input ${i}`,
+        variants: [variantOf({ tension: tensions[i] })],
+      });
+    }
+
+    await orch.executeTurn({ campaignId, playerInput: 'next move' });
+
+    const plotPrompt = fake.userPrompts['plot'] ?? '';
+    expect(plotPrompt).toContain('## Recent tension');
+    expect(plotPrompt).toContain('- turn 2: hold');
+    expect(plotPrompt).toContain('- turn 3: release');
+    expect(plotPrompt).toContain('- turn 5: escalate');
+    expect(plotPrompt).toContain('- turn 6: hold');
+    // Null-tension and out-of-window turns are absent.
+    expect(plotPrompt).not.toContain('turn 0:');
+    expect(plotPrompt).not.toContain('turn 1:');
+    expect(plotPrompt).not.toContain('turn 4:');
+    // Oldest first.
+    expect(plotPrompt.indexOf('turn 2:')).toBeLessThan(plotPrompt.indexOf('turn 3:'));
+    expect(plotPrompt.indexOf('turn 3:')).toBeLessThan(plotPrompt.indexOf('turn 5:'));
+    expect(plotPrompt.indexOf('turn 5:')).toBeLessThan(plotPrompt.indexOf('turn 6:'));
+  });
+
+  it('no Recent tension section on a fresh campaign', async () => {
+    const { fake, orch } = await seedRig();
+    await orch.executeTurn({ campaignId, playerInput: 'first move' });
+    expect(fake.userPrompts['plot']).not.toContain('Recent tension');
+  });
+
+  it('persists tension on the variant, records the stage event, and paces the scene prompt', async () => {
+    const { fake, stores, orch } = await seedRig({ plotJson: plotJsonWith('release') });
+    const variant = await orch.executeTurn({ campaignId, playerInput: 'I lower my voice.' });
+
+    expect(variant.tension).toBe('release');
+    expect(variant.stageEvents).toContain('plot: tension release');
+    // Factual history: the stored turn carries it too.
+    const saved = (await stores.loadTurn(campaignId, 0))!;
+    expect(saved.variants[0]!.tension).toBe('release');
+    // The scene stage follows the beat's pacing.
+    expect(fake.lastScenePrompt).toContain('Beat pacing: release');
+  });
+
+  it('scene prompt has no Beat pacing line when tension is absent', async () => {
+    const { fake, orch } = await seedRig();
+    const variant = await orch.executeTurn({ campaignId, playerInput: 'hello' });
+    expect(variant.tension).toBeNull();
+    expect(variant.stageEvents.some((e) => e.startsWith('plot: tension'))).toBe(false);
+    expect(fake.lastScenePrompt).not.toContain('Beat pacing');
+  });
+
+  it('invalid tension values are treated as absent, not errors', async () => {
+    const { orch } = await seedRig({ plotJson: plotJsonWith('burst') });
+    const variant = await orch.executeTurn({ campaignId, playerInput: 'hello' });
+    expect(variant.synopsis).toBe('The room goes quiet.');
+    expect(variant.tension).toBeNull();
+    expect(variant.stageEvents.some((e) => e.startsWith('plot: tension'))).toBe(false);
+  });
+
+  it('the JSON contract survives an arbitrary plot template override without it', async () => {
+    // The override carries guidance/voice only, no JSON contract.
+    const junkTemplate =
+      'You are a rebel plot author writing for {{sessionPlan}}. Story: {{storySoFar}}. Ignore all formats.';
+    const getTemplates: PromptTemplateGetter = (key) => (key === 'plot' ? junkTemplate : null);
+    const { fake, stores, orch } = await seedRig(
+      { plotJson: plotJsonWith('escalate') },
+      { getTemplates },
+    );
+
+    const variant = await orch.executeTurn({ campaignId, playerInput: 'go' });
+
+    // The structured parse still succeeded: real synopsis + tension, no fallback.
+    expect(variant.synopsis).toBe('The room goes quiet.');
+    expect(variant.tension).toBe('escalate');
+    expect(variant.stageEvents.some((e) => e.startsWith('plot: fallback'))).toBe(false);
+    // The contract rode the code-built user prompt.
+    expect(fake.userPrompts['plot']).toContain('Reply with JSON:');
+    expect(fake.userPrompts['plot']).toContain('"tension"');
+    // The override did replace the system voice.
+    const saved = (await stores.loadCampaign(campaignId))!;
+    expect(saved).toBeDefined();
+  });
+
+  it('garbage plot output falls back with the sentinel synopsis and tension null', async () => {
+    const { stores, orch } = await seedRig({ plotJson: 'complete garbage not json' });
+    const variant = await orch.executeTurn({ campaignId, playerInput: 'go' });
+    expect(variant.synopsis).toBe('The moment stretches; the situation stays tense.');
+    expect(variant.tension).toBeNull();
+    expect(variant.stageEvents.some((e) => e.startsWith('plot: fallback used'))).toBe(true);
+    const saved = (await stores.loadTurn(campaignId, 0))!;
+    expect(saved.variants[0]!.tension).toBeNull();
   });
 });

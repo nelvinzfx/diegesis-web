@@ -10,15 +10,16 @@
  * variant rather than an exception.
  */
 
-import type {
-  Campaign,
-  MechanicResult,
-  MemoryEntry,
-  Npc,
-  SceneState,
-  Turn,
-  TurnVariant,
-  TrackerState,
+import {
+  isTensionValue,
+  type Campaign,
+  type MechanicResult,
+  type MemoryEntry,
+  type Npc,
+  type SceneState,
+  type Turn,
+  type TurnVariant,
+  type TrackerState,
 } from '../shared/types.js';
 import type { AiCaller } from './ai-caller.js';
 import type { PromptTemplateGetter } from './prompt-templates.js';
@@ -165,6 +166,7 @@ export class PipelineOrchestrator {
 
     // ---- 4. Plot --------------------------------------------------------
     const recentSummary = buildRecentSummary(allTurns);
+    const tensionHistory = buildTensionHistory(allTurns);
     emitProgress('plot: generating turn plan…');
     let plotOutput: Awaited<ReturnType<typeof PlotStage.execute>>;
     try {
@@ -175,6 +177,7 @@ export class PipelineOrchestrator {
         routerDecision,
         mechanicResults,
         retrievedMemories: preRetrieval,
+        tensionHistory,
         getTemplate: this.templateGetter,
       });
     } catch (t) {
@@ -185,6 +188,7 @@ export class PipelineOrchestrator {
         scene_change: false,
         location: null,
         tracker_updates: [],
+        tension: null,
       };
     }
 
@@ -196,6 +200,9 @@ export class PipelineOrchestrator {
     ) {
       recordEvent('plot: fallback used (json parse failed)');
     }
+    // Recorded after the fallback check above so a tension value can never
+    // mask a fallback detection that keys on `plot:`-prefixed events.
+    if (plotOutput.tension !== null) recordEvent(`plot: tension ${plotOutput.tension}`);
     if (!stageEvents.some((event) => event.startsWith('plot:'))) emitProgress('plot: done');
 
     // present_npcs is authoritative for the new scene, but the model writes
@@ -262,6 +269,7 @@ export class PipelineOrchestrator {
 
     const context: SceneContext = assemble({
       synopsis: plotOutput.synopsis,
+      tension: plotOutput.tension,
       location: campaign.sceneState.location,
       mechanicResults,
       presentNpcIds,
@@ -425,6 +433,7 @@ export class PipelineOrchestrator {
       timestamp: Date.now(),
       stageEvents: [...stageEvents],
       reasoning: reasoningParts.join('').trim().length > 0 ? reasoningParts.join('') : null,
+      tension: plotOutput.tension,
     };
 
     try {
@@ -535,6 +544,22 @@ function witnessedTurnsFor(npcId: string, allTurns: Turn[]): Turn[] {
     const variant = turn.variants[turn.variants.length - 1];
     return variant !== undefined && variant.presentNpcIds.includes(npcId);
   });
+}
+
+/**
+ * Recent tension history for the plot stage, from the stored turns' latest
+ * variants: last 5 turns, oldest first, turns without a tension value
+ * skipped. Exported for the prompt preview (same data, same order).
+ */
+export function buildTensionHistory(allTurns: Turn[], limit: number = 5): string[] {
+  return allTurns
+    .slice(-limit)
+    .map((turn) => {
+      const variant = turn.variants[turn.variants.length - 1];
+      const tension = variant?.tension ?? null;
+      return tension !== null && isTensionValue(tension) ? `turn ${turn.index}: ${tension}` : null;
+    })
+    .filter((line): line is string => line !== null);
 }
 
 /**

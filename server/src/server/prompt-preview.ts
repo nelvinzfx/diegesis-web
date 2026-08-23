@@ -8,6 +8,7 @@
 import type { AppSettings, Campaign, MemoryEntry, Npc, Turn } from '../shared/types.js';
 import type { StorageHub } from '../storage/hub.js';
 import { getterFromOverrides } from '../engine/prompt-templates.js';
+import { buildTensionHistory } from '../engine/orchestrator.js';
 import { filterVisibleTurns, assemble, formatPrompt } from '../engine/visibility.js';
 import { trimToFit } from '../engine/trimmer.js';
 import { retrieve as retrieveMemories } from '../engine/memory-retriever.js';
@@ -115,13 +116,16 @@ export async function buildStagePreview(
       const recentSummary = buildRecentSummary(turns);
       const sessionPlan =
         campaign.sessionPlan.trim().length > 0 ? campaign.sessionPlan : '(no session plan yet)';
+      // Same source as executeTurn: latest variants of the stored turns.
+      const tensionHistory = buildTensionHistory(turns);
       return {
         stage: 'plot',
-        system: PlotStage.resolveSystemPrompt(getTemplate, sessionPlan, recentSummary),
+        system: PlotStage.resolveSystemPrompt(getTemplate, sessionPlan, recentSummary, tensionHistory),
         user: PlotStage.buildUserPayload(
           playerInput,
           [],
           retrieveMemories(playerInput, memories),
+          tensionHistory,
         ),
         meta,
       };
@@ -145,6 +149,8 @@ export async function buildStagePreview(
       const sceneRetrieval = retrieveMemories(`${playerInput} ${SYNOPSIS_PLACEHOLDER}`, memories);
       const context = assemble({
         synopsis: SYNOPSIS_PLACEHOLDER,
+        // The live beat's tension is not known at preview time.
+        tension: null,
         location: campaign.sceneState.location,
         mechanicResults: [],
         presentNpcIds: presentIds,
