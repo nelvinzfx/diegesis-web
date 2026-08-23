@@ -46,6 +46,16 @@ describe('prompt template interpolation', () => {
       'memory-extraction',
       'session-plan',
       'title',
+      'opening',
+    ]);
+    expect(STAGE_VARIABLES.opening).toEqual([
+      'title',
+      'premise',
+      'sessionPlan',
+      'location',
+      'playerPersona',
+      'presentNpcs',
+      'language',
     ]);
     for (const key of STAGE_KEYS) {
       expect(isStageKey(key)).toBe(true);

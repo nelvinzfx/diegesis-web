@@ -10,6 +10,7 @@ function campaign(title: string): Campaign {
     premise: 'p',
     sessionPlan: '',
     playerPersona: '',
+    openingMessage: '',
     sceneState: { location: '', presentNpcIds: [] },
     thinkModel: null,
     writeModel: null,

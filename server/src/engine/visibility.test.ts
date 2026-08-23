@@ -52,6 +52,7 @@ function npc(id: string, name = `NPC ${id}`): Npc {
     name,
     description: `desc of ${name}`,
     personality: `personality of ${name}`,
+    firstMessage: '',
     voiceExamples: [`A line from ${name}`],
     agency: { goal: `goal-${id}`, stance: `stance-${id}`, will_act_on: `act-${id}` },
     trackers: { trust: 3 },
@@ -266,5 +267,34 @@ describe('VisibilityContextAssembler', () => {
       assemble({ presentNpcIds: ['alice'], allTurns: turns }),
     );
     expect(prompt.indexOf('S0')).toBeLessThan(prompt.indexOf('S1'));
+  });
+});
+
+describe('empty playerInput turns (opening scene)', () => {
+  it('contributes only sceneOutput to the prompt: no empty player line', () => {
+    const opening = turn(0, '', [], 'The harbor lights flicker in the rain.');
+    const followUp = turn(1, 'I hail the ferryman.', [], 'He turns, oar half-raised.');
+    const npcs: Npc[] = [];
+    const context = VisibilityContextAssembler.assemble({
+      synopsis: 'beat',
+      mechanicResults: [],
+      presentNpcIds: [],
+      presentNpcs: npcs,
+      allTurns: [opening, followUp],
+      retrievedMemories: [],
+      playerInput: 'I step ashore.',
+    });
+    const prompt = VisibilityContextAssembler.formatPrompt(context);
+
+    // The opening's prose is present exactly once...
+    const count = prompt.split('The harbor lights flicker in the rain.').length - 1;
+    expect(count).toBe(1);
+    // ...with NO empty Player line right before it (only the follow-up keeps one).
+    expect(prompt).not.toContain('**Player:** \n');
+    expect(prompt).toContain('**Player:** I hail the ferryman.');
+    // The line directly above the opening prose must not be a player cue.
+    const lines = prompt.split('\n');
+    const idx = lines.findIndex((l) => l.includes('The harbor lights flicker'));
+    expect(lines[idx - 1].trim()).not.toBe('**Player:**');
   });
 });

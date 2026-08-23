@@ -64,7 +64,21 @@ describe('prompt template API', () => {
       'memory-extraction',
       'session-plan',
       'title',
+      'opening',
     ]);
+
+    // The opening stage lists exactly its documented template variables.
+    const opening = stages.find((s) => s.key === 'opening');
+    expect(opening?.variables).toEqual([
+      'title',
+      'premise',
+      'sessionPlan',
+      'location',
+      'playerPersona',
+      'presentNpcs',
+      'language',
+    ]);
+    expect(opening?.default).toContain('opening scene');
     for (const stage of stages) {
       expect(stage.default.length).toBeGreaterThan(0);
       expect(stage.variables.length).toBeGreaterThan(0);
@@ -205,6 +219,7 @@ describe('prompt preview endpoint', () => {
       name: 'Lira',
       description: 'A guide.',
       personality: 'wary',
+      firstMessage: '',
       voiceExamples: [],
       agency: { goal: '', stance: '', will_act_on: '' },
       trackers: {},

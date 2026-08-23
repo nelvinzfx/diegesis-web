@@ -112,6 +112,7 @@ export interface CampaignInput {
   premise?: string;
   sessionPlan?: string;
   playerPersona?: string;
+  openingMessage?: string;
   sceneState?: { location: string; presentNpcIds: string[] };
 }
 
@@ -207,6 +208,52 @@ export async function streamTurn(
   return { ...result, turn: terminalTurn };
 }
 
+/** Creates turn 0 from the stored opening (campaign message or NPC firstMessage). */
+export function playOpening(campaignId: string): Promise<Turn> {
+  return request<{ turn: Turn }>(`/campaigns/${encodeURIComponent(campaignId)}/opening`, {
+    method: 'POST',
+  }).then((r) => r.turn);
+}
+
+export type OpeningStreamResult = SseFetchResult & {
+  /** done.text when received; the client saves it via PUT campaign. */
+  text: string | null;
+};
+
+/** Opening-scene generation stream (campaign create/edit opening UI). */
+export async function streamOpening(
+  campaignId: string,
+  handlers: {
+    onStage: (line: string) => void;
+    onReasoning: (text: string) => void;
+    onToken: (text: string) => void;
+  },
+  signal?: AbortSignal,
+): Promise<OpeningStreamResult> {
+  const result = await sseFetch(
+    `/api/campaigns/${encodeURIComponent(campaignId)}/opening/generate`,
+    {
+      method: 'POST',
+      body: JSON.stringify({}),
+      signal,
+      onEvent: (event, data) => {
+        const d = (data ?? {}) as Record<string, unknown>;
+        if (event === 'stage' && typeof d.line === 'string') handlers.onStage(d.line);
+        else if (event === 'reasoning' && typeof d.text === 'string') handlers.onReasoning(d.text);
+        else if (event === 'token' && typeof d.text === 'string') handlers.onToken(d.text);
+      },
+    },
+  );
+  const text =
+    result.terminal?.event === 'done' &&
+    typeof result.terminal.data === 'object' &&
+    result.terminal.data !== null &&
+    typeof (result.terminal.data as Record<string, unknown>)['text'] === 'string'
+      ? ((result.terminal.data as Record<string, unknown>)['text'] as string)
+      : null;
+  return { ...result, text };
+}
+
 /** Session-plan generation stream (campaign-new / campaign-edit planning UI). */
 export async function streamPlan(
   campaignId: string,
@@ -244,6 +291,7 @@ export interface NpcInput {
   name?: string;
   description?: string;
   personality?: string;
+  firstMessage?: string;
   voiceExamples?: string[];
   agency?: Partial<NpcAgency>;
   trackers?: Record<string, number>;

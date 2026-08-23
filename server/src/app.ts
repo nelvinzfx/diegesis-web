@@ -28,6 +28,7 @@ import { registerNpcRoutes } from './routes/npcs.js';
 import { registerMemoryRoutes } from './routes/memories.js';
 import { registerTurnRoutes } from './routes/turns.js';
 import { registerPlanRoute } from './routes/plan.js';
+import { registerOpeningRoutes } from './routes/opening.js';
 import { registerPromptRoutes } from './routes/prompts.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -106,6 +107,7 @@ export function createApp(options: CreateAppOptions = {}): express.Express {
   registerMemoryRoutes(api, ctx);
   registerTurnRoutes(api, ctx);
   registerPlanRoute(api, ctx);
+  registerOpeningRoutes(api, ctx);
   registerPromptRoutes(api, ctx);
   app.use('/api', api);
 

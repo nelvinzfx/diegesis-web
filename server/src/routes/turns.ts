@@ -68,14 +68,16 @@ export function registerTurnRoutes(router: Router, ctx: RouteContext): void {
       const body = (req.body ?? {}) as { playerInput?: unknown; targetTurnIndex?: unknown };
       const playerInput =
         typeof body.playerInput === 'string' ? body.playerInput.trim() : '';
-      if (playerInput.length === 0) {
-        res.status(400).json({ ok: false, error: 'player_input_required' });
-        return;
-      }
       const targetTurnIndex =
         typeof body.targetTurnIndex === 'number' && Number.isInteger(body.targetTurnIndex)
           ? body.targetTurnIndex
           : null;
+      // Turn 0 (the opening scene) has no player input by design; regenerating
+      // it sends an empty string with targetTurnIndex 0.
+      if (playerInput.length === 0 && targetTurnIndex !== 0) {
+        res.status(400).json({ ok: false, error: 'player_input_required' });
+        return;
+      }
 
       const settings = await ctx.effectiveSettings();
       const controller = new AbortController();

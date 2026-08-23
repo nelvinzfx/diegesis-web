@@ -12,6 +12,8 @@ import {
   deleteMemoryAt,
   importNpcJson,
   importNpcPngBytes,
+  playOpening,
+  streamOpening,
   updateSettings,
 } from './api';
 
@@ -151,5 +153,91 @@ describe('npc import', () => {
       status: 400,
       code: 'card_import_failed',
     });
+  });
+});
+
+// ---- opening endpoints -------------------------------------------------------
+
+/** Minimal SSE-shaped Response: frames delivered one read() at a time. */
+function sseResponse(frames: string[]): Response {
+  const encoder = new TextEncoder();
+  let i = 0;
+  return {
+    ok: true,
+    status: 200,
+    headers: new Headers({ 'content-type': 'text/event-stream' }),
+    get body(): ReadableStream<Uint8Array> | null {
+      return {
+        getReader() {
+          return {
+            read: async () =>
+              i < frames.length
+                ? { done: false, value: encoder.encode(frames[i++]) }
+                : { done: true, value: undefined },
+          };
+        },
+      } as unknown as ReadableStream<Uint8Array>;
+    },
+  } as unknown as Response;
+}
+
+describe('opening endpoints', () => {
+  it('playOpening POSTs to /campaigns/:id/opening and unwraps {turn}', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ turn: { index: 0, playerInput: '' } }));
+    const turn = await playOpening('c1');
+    expect(turn).toEqual({ index: 0, playerInput: '' });
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe('/api/campaigns/c1/opening');
+    expect(init.method).toBe('POST');
+  });
+
+  it('streamOpening POSTs to /opening/generate, dispatches events, surfaces done text', async () => {
+    fetchMock.mockResolvedValue(
+      sseResponse([
+        'event: stage\ndata: {"line":"opening: drafting…"}\n\n',
+        'event: reasoning\ndata: {"text":"weighing the first beat…"}\n\n',
+        'event: token\ndata: {"text":"The harbor wakes. "}\n\n',
+        'event: token\ndata: {"text":"Gulls scream."}\n\n',
+        'event: done\ndata: {"text":"The harbor wakes. Gulls scream."}\n\n',
+      ]),
+    );
+
+    const stages: string[] = [];
+    const reasoning: string[] = [];
+    const tokens: string[] = [];
+    const result = await streamOpening(
+      'c1',
+      {
+        onStage: (line) => stages.push(line),
+        onReasoning: (text) => reasoning.push(text),
+        onToken: (text) => tokens.push(text),
+      },
+      undefined,
+    );
+
+    expect(stages).toEqual(['opening: drafting…']);
+    expect(reasoning).toEqual(['weighing the first beat…']);
+    expect(tokens).toEqual(['The harbor wakes. ', 'Gulls scream.']);
+    expect(result.aborted).toBe(false);
+    expect(result.terminal?.event).toBe('done');
+    expect(result.text).toBe('The harbor wakes. Gulls scream.');
+
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe('/api/campaigns/c1/opening/generate');
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(init.body as string)).toEqual({});
+  });
+
+  it('streamOpening returns null text when no done event arrives', async () => {
+    fetchMock.mockResolvedValue(
+      sseResponse(['event: error\ndata: {"message":"boom"}\n\n']),
+    );
+    const result = await streamOpening('c1', {
+      onStage: () => undefined,
+      onReasoning: () => undefined,
+      onToken: () => undefined,
+    });
+    expect(result.text).toBeNull();
+    expect(result.terminal?.event).toBe('error');
   });
 });

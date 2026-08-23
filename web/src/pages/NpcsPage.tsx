@@ -107,6 +107,7 @@ interface EditorState {
   name: string;
   description: string;
   personality: string;
+  firstMessage: string;
   voice: string; // one example per line
   goal: string;
   stance: string;
@@ -120,6 +121,7 @@ function editorFromNpc(npc: Npc): EditorState {
     name: npc.name,
     description: npc.description,
     personality: npc.personality,
+    firstMessage: npc.firstMessage ?? '',
     voice: npc.voiceExamples.join('\n'),
     goal: npc.agency.goal,
     stance: npc.agency.stance,
@@ -136,6 +138,7 @@ const EMPTY_EDITOR: EditorState = {
   name: '',
   description: '',
   personality: '',
+  firstMessage: '',
   voice: '',
   goal: '',
   stance: '',
@@ -180,6 +183,7 @@ function NpcEditor({
       name: form.name.trim(),
       description: form.description.trim(),
       personality: form.personality.trim(),
+      firstMessage: form.firstMessage.trim(),
       voiceExamples: form.voice
         .split('\n')
         .map((line) => line.trim())
@@ -246,6 +250,19 @@ function NpcEditor({
             onChange={(e) => set({ voice: e.target.value })}
             placeholder={'Never trust a fair wind.\nPay me first.'}
           />
+        </label>
+
+        <label className="block">
+          <span className="mb-1.5 block text-xs text-text-mid">First message</span>
+          <TextArea
+            value={form.firstMessage}
+            rows={4}
+            onChange={(e) => set({ firstMessage: e.target.value })}
+            placeholder="The prose shown when the story opens with this NPC present."
+          />
+          <span className="mt-1 block text-[11px] text-text-low">
+            Used as the opening scene when this NPC leads the story.
+          </span>
         </label>
 
         <div>

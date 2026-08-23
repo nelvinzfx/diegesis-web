@@ -60,6 +60,8 @@ interface ActiveCampaignValue {
 
   turns: Turn[];
   turnsLoading: boolean;
+  /** Re-reads the authoritative turn list (used after playing the opening). */
+  refreshTurns: () => Promise<void>;
 
   /** NPC roster of the active campaign (phase 4 manager). */
   npcs: Npc[];
@@ -487,6 +489,7 @@ export function ActiveCampaignProvider({ children }: { children: ReactNode }) {
       switchCampaign,
       turns,
       turnsLoading,
+      refreshTurns,
       npcs,
       npcsLoading,
       refreshNpcs,
@@ -524,6 +527,7 @@ export function ActiveCampaignProvider({ children }: { children: ReactNode }) {
       switchCampaign,
       turns,
       turnsLoading,
+      refreshTurns,
       npcs,
       npcsLoading,
       refreshNpcs,

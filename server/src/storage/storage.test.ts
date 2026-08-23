@@ -51,6 +51,7 @@ describe('CampaignStorage', () => {
       premise: '',
       sessionPlan: '',
       playerPersona: '',
+      openingMessage: '',
       sceneState: { location: 'Tavern', presentNpcIds: [] },
       thinkModel: null,
       writeModel: null,
@@ -70,6 +71,7 @@ describe('CampaignStorage', () => {
       name: 'Innkeeper',
       description: '',
       personality: '',
+      firstMessage: '',
       voiceExamples: [],
       agency: { goal: '', stance: '', will_act_on: '' },
       trackers: {},
@@ -93,6 +95,7 @@ describe('NpcStorage', () => {
       name: 'Bad',
       description: '',
       personality: '',
+      firstMessage: '',
       voiceExamples: [],
       agency: { goal: '', stance: '', will_act_on: '' },
       trackers: {},
@@ -111,6 +114,7 @@ describe('NpcStorage', () => {
       name,
       description: '',
       personality: '',
+      firstMessage: '',
       voiceExamples: [],
       agency: { goal: '', stance: '', will_act_on: '' },
       trackers: {},
@@ -266,6 +270,7 @@ describe('hub.stores', () => {
       premise: '',
       sessionPlan: '',
       playerPersona: '',
+      openingMessage: '',
       sceneState: { location: '', presentNpcIds: [] },
       thinkModel: null,
       writeModel: null,
@@ -298,5 +303,57 @@ describe('Mutex', () => {
     await expect(failing).rejects.toThrow('boom');
     await expect(second).resolves.toBe('ok');
     expect(order).toEqual([1, 2]);
+  });
+});
+
+describe('legacy file backfill (opening fields)', () => {
+  it('loads an old campaign.json without openingMessage as ""', async () => {
+    const root = await tmpRoot();
+    const dir = path.join(root, 'campaigns', 'c1');
+    await fs.mkdir(dir, { recursive: true });
+    await fs.writeFile(
+      path.join(dir, 'campaign.json'),
+      JSON.stringify({
+        id: 'c1',
+        title: 'Old',
+        premise: '',
+        sessionPlan: '',
+        playerPersona: '',
+        sceneState: { location: '', presentNpcIds: [] },
+        thinkModel: null,
+        writeModel: null,
+        createdAt: 1,
+        updatedAt: 1,
+      }),
+      'utf8',
+    );
+    const hub = createStorageHub(root);
+    const loaded = await hub.campaigns.get('c1');
+    expect(loaded?.openingMessage).toBe('');
+    expect((await hub.campaigns.list())[0].openingMessage).toBe('');
+  });
+
+  it('loads an old npc.json without firstMessage as ""', async () => {
+    const root = await tmpRoot();
+    const dir = path.join(root, 'campaigns', 'c1', 'npcs');
+    await fs.mkdir(dir, { recursive: true });
+    await fs.writeFile(
+      path.join(dir, 'n1.json'),
+      JSON.stringify({
+        id: 'n1',
+        name: 'Old Npc',
+        description: '',
+        personality: '',
+        voiceExamples: [],
+        agency: { goal: '', stance: '', will_act_on: '' },
+        trackers: {},
+        sourceCard: null,
+      }),
+      'utf8',
+    );
+    const hub = createStorageHub(root);
+    const loaded = await hub.npcs.get('c1', 'n1');
+    expect(loaded?.firstMessage).toBe('');
+    expect((await hub.npcs.list('c1'))[0].firstMessage).toBe('');
   });
 });

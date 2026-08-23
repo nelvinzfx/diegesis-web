@@ -111,13 +111,16 @@ export function TurnBlock({
         </Popover>
       </div>
 
-      {/* Action cue: player input */}
-      <div className="ml-4 border-l-2 border-line-strong pl-4">
-        <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-text-low">You</span>
-        <p className="mt-0.5 whitespace-pre-wrap text-sm leading-relaxed text-text-mid">
-          {turn.playerInput}
-        </p>
-      </div>
+      {/* Action cue: player input. Turn 0 (the opening scene) has none —
+          skip the cue entirely instead of rendering an empty YOU line. */}
+      {turn.playerInput.trim().length > 0 && (
+        <div className="ml-4 border-l-2 border-line-strong pl-4">
+          <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-text-low">You</span>
+          <p className="mt-0.5 whitespace-pre-wrap text-sm leading-relaxed text-text-mid">
+            {turn.playerInput}
+          </p>
+        </div>
+      )}
 
       {/* Scene prose */}
       <div className="dg-prose mt-4">

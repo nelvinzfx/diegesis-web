@@ -29,7 +29,7 @@ export class NpcStorage {
     for (const entry of entries) {
       if (!entry.endsWith('.json')) continue;
       const npc = await readJsonOrNull<Npc>(path.join(this.npcsDir(campaignId), entry));
-      if (npc && typeof npc.id === 'string') out.push(npc);
+      if (npc && typeof npc.id === 'string') out.push(normalizeNpc(npc));
     }
     out.sort((a, b) => a.name.localeCompare(b.name));
     return out;
@@ -37,7 +37,8 @@ export class NpcStorage {
 
   async get(campaignId: string, npcId: string): Promise<Npc | null> {
     if (!isSafeId(npcId)) return null;
-    return readJsonOrNull<Npc>(this.npcFile(campaignId, npcId));
+    const npc = await readJsonOrNull<Npc>(this.npcFile(campaignId, npcId));
+    return npc === null ? null : normalizeNpc(npc);
   }
 
   async save(campaignId: string, npc: Npc): Promise<void> {
@@ -60,4 +61,12 @@ export class NpcStorage {
 /** Guards against traversal via crafted ids. */
 export function isSafeId(id: string): boolean {
   return /^[A-Za-z0-9._-]+$/.test(id);
+}
+
+/**
+ * Backfills firstMessage ('' default) on NPC files written before the field
+ * existed, so callers never see undefined.
+ */
+export function normalizeNpc(npc: Npc): Npc {
+  return typeof npc.firstMessage === 'string' ? npc : { ...npc, firstMessage: '' };
 }

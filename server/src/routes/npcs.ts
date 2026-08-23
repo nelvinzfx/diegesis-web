@@ -29,6 +29,7 @@ function applyPatch(npc: Npc, body: Record<string, unknown>): Npc {
   if (typeof body['name'] === 'string') out.name = body['name'];
   if (typeof body['description'] === 'string') out.description = body['description'];
   if (typeof body['personality'] === 'string') out.personality = body['personality'];
+  if (typeof body['firstMessage'] === 'string') out.firstMessage = body['firstMessage'];
   if (Array.isArray(body['voiceExamples'])) {
     out.voiceExamples = body['voiceExamples'].filter((v): v is string => typeof v === 'string');
   }
@@ -84,6 +85,7 @@ export function registerNpcRoutes(router: Router, ctx: RouteContext): void {
         description: '',
         personality: '',
         voiceExamples: [],
+        firstMessage: '',
         agency: defaultNpcAgency(),
         trackers: {},
         sourceCard: null,

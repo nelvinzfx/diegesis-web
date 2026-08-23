@@ -6,17 +6,28 @@
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 
-import { AlertTriangle, BookOpen, ChevronsDown } from 'lucide-react';
+import { AlertTriangle, BookOpen, ChevronsDown, Loader2, Play } from 'lucide-react';
 
+import * as api from '../lib/api';
 import type { Turn, TurnVariant } from '../lib/types';
 import { useActiveCampaign } from '../state/ActiveCampaignContext';
+import { PrimaryButton } from './common';
 import { TurnBlock } from './TurnBlock';
 
 const FOLLOW_THRESHOLD_PX = 48;
 
 export function Transcript(): ReactNode {
-  const { turns, streaming, selectedTurnIndex, selectTurn, variantByTurn, apiKeyMissing } =
-    useActiveCampaign();
+  const {
+    turns,
+    streaming,
+    selectedTurnIndex,
+    selectTurn,
+    variantByTurn,
+    apiKeyMissing,
+    campaign,
+    npcs,
+    refreshTurns,
+  } = useActiveCampaign();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [following, setFollowing] = useState(true);
 
@@ -55,7 +66,11 @@ export function Transcript(): ReactNode {
         {apiKeyMissing && <ApiKeyWarning />}
 
         {turns.length === 0 && !appendingLive ? (
-          <EmptyTranscript />
+          campaign !== null && hasStoredOpening(campaign, npcs) ? (
+            <BeginStoryCard campaignId={campaign.id} onPlayed={refreshTurns} />
+          ) : (
+            <EmptyTranscript />
+          )
         ) : (
           <div className="mx-auto max-w-[720px] space-y-10 px-6 pb-8 pt-6">
             {turns.map((turn) => {
@@ -105,6 +120,62 @@ function EmptyTranscript(): ReactNode {
     <div className="flex h-full flex-col items-center justify-center gap-3 px-6 pb-24 text-center">
       <BookOpen size={28} strokeWidth={1.5} className="text-text-low" />
       <p className="text-sm text-text-mid">The stage is empty. Write the first action.</p>
+    </div>
+  );
+}
+
+/** True when the campaign can play an opening: stored message or a present NPC first message. */
+function hasStoredOpening(
+  campaign: ReturnType<typeof useActiveCampaign>['campaign'],
+  npcs: ReturnType<typeof useActiveCampaign>['npcs'],
+): boolean {
+  if (campaign === null) return false;
+  if (campaign.openingMessage.trim().length > 0) return true;
+  const present = new Set(campaign.sceneState.presentNpcIds);
+  return npcs.some(
+    (npc) => present.has(npc.id) && (npc.firstMessage ?? '').trim().length > 0,
+  );
+}
+
+/** Centered card shown instead of the empty state when an opening exists. */
+function BeginStoryCard({
+  campaignId,
+  onPlayed,
+}: {
+  campaignId: string;
+  onPlayed: () => Promise<void>;
+}): ReactNode {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const play = async (): Promise<void> => {
+    if (busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await api.playOpening(campaignId);
+      await onPlayed();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="flex h-full items-center justify-center px-6 pb-24">
+      <div className="flex w-full max-w-xs flex-col items-center gap-3 rounded-xl border border-line bg-surface-1 p-6 text-center">
+        <Play size={28} strokeWidth={1.5} className="text-text-low" />
+        <h3 className="text-sm font-medium text-text-hi">Begin the story</h3>
+        <p className="text-xs leading-relaxed text-text-mid">
+          Play the opening scene, then take your first turn.
+        </p>
+        <PrimaryButton onPress={() => void play()} disabled={busy}>
+          {busy ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} strokeWidth={1.75} />}
+          Play opening
+        </PrimaryButton>
+        {error !== null && <p className="text-xs text-accent-red">{error}</p>}
+      </div>
     </div>
   );
 }

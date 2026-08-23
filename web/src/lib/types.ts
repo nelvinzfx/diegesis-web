@@ -93,6 +93,8 @@ export interface Npc {
   description: string;
   personality: string;
   voiceExamples: string[];
+  /** Card first_mes: shown as the opening scene when this NPC leads. */
+  firstMessage: string;
   agency: NpcAgency;
   trackers: Record<string, number>;
   sourceCard: string | null;
@@ -116,6 +118,8 @@ export interface Campaign {
   premise: string;
   sessionPlan: string;
   playerPersona: string;
+  /** Editable opening scene text; turn 0 is created from it. */
+  openingMessage: string;
   sceneState: SceneState;
   thinkModel: StageModelSelection | null;
   writeModel: StageModelSelection | null;

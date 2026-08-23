@@ -22,6 +22,10 @@ import {
   MAX_TITLE_CHARS,
 } from './title-service.js';
 import { planUserPrompt, resolvePlanSystemPrompt } from '../routes/plan.js';
+import {
+  buildOpeningValues,
+  resolveOpeningSystemPrompt,
+} from '../routes/opening.js';
 
 export interface PreviewMeta {
   turnsIncluded: number;
@@ -203,6 +207,16 @@ export async function buildStagePreview(
           ...meta,
           presentNpcs: [...meta.presentNpcs, `max ${MAX_TITLE_CHARS} chars`],
         },
+      };
+    }
+
+    case 'opening': {
+      const values = await buildOpeningValues(input.hub, input.settings, campaign);
+      return {
+        stage: 'opening',
+        system: resolveOpeningSystemPrompt(getTemplate, values),
+        user: 'Write the opening scene now.',
+        meta,
       };
     }
 

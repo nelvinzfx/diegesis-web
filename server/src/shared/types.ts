@@ -102,6 +102,12 @@ export interface Npc {
   description: string;
   personality: string;
   voiceExamples: string[];
+  /**
+   * The card's first_mes: prose shown as the opening scene when this NPC
+   * leads the story. Empty string for cards without one and for NPCs created
+   * before the field existed (storage normalizes missing -> '').
+   */
+  firstMessage: string;
   agency: NpcAgency;
   trackers: Record<string, number>;
   sourceCard: string | null;
@@ -125,6 +131,12 @@ export interface Campaign {
   premise: string;
   sessionPlan: string;
   playerPersona: string;
+  /**
+   * Editable opening scene text. Turn 0 is created from it when the story
+   * begins. Empty string for campaigns created before the field existed
+   * (storage normalizes missing -> '').
+   */
+  openingMessage: string;
   sceneState: SceneState;
   thinkModel: StageModelSelection | null;
   writeModel: StageModelSelection | null;

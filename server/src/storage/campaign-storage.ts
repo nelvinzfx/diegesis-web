@@ -34,14 +34,15 @@ export class CampaignStorage {
     const out: Campaign[] = [];
     for (const entry of entries) {
       const campaign = await readJsonOrNull<Campaign>(this.file(entry));
-      if (campaign && typeof campaign.id === 'string') out.push(campaign);
+      if (campaign && typeof campaign.id === 'string') out.push(normalizeCampaign(campaign));
     }
     out.sort((a, b) => a.createdAt - b.createdAt || a.id.localeCompare(b.id));
     return out;
   }
 
   async get(campaignId: string): Promise<Campaign | null> {
-    return readJsonOrNull<Campaign>(this.file(campaignId));
+    const campaign = await readJsonOrNull<Campaign>(this.file(campaignId));
+    return campaign === null ? null : normalizeCampaign(campaign);
   }
 
   async save(campaign: Campaign): Promise<void> {
@@ -56,6 +57,14 @@ export class CampaignStorage {
     await fs.rm(dir, { recursive: true, force: true });
     return true;
   }
+}
+
+/**
+ * Backfills openingMessage ('' default) on campaign files written before the
+ * field existed, so callers never see undefined.
+ */
+export function normalizeCampaign(campaign: Campaign): Campaign {
+  return typeof campaign.openingMessage === 'string' ? campaign : { ...campaign, openingMessage: '' };
 }
 
 async function pathExistsDir(p: string): Promise<boolean> {

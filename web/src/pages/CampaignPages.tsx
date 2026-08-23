@@ -19,6 +19,10 @@ import {
 } from '../components/common';
 import * as api from '../lib/api';
 import { usePlanStream, type PlanStreamState } from '../lib/usePlanStream';
+import {
+  useOpeningStream,
+  type OpeningStreamState,
+} from '../lib/useOpeningStream';
 import type { Campaign } from '../lib/types';
 import { useActiveCampaign } from '../state/ActiveCampaignContext';
 
@@ -90,14 +94,16 @@ function CampaignFields({
 function PlanPreview({
   plan,
   onStop,
+  label = 'Session plan · live',
 }: {
-  plan: PlanStreamState;
+  plan: PlanStreamState | OpeningStreamState;
   onStop: () => void;
+  label?: string;
 }): ReactNode {
   return (
     <div className="rounded-xl border border-line bg-surface-1 p-4">
       <div className="flex items-center justify-between">
-        <SectionLabel>Session plan · live</SectionLabel>
+        <SectionLabel>{label}</SectionLabel>
         <button
           type="button"
           onClick={onStop}
@@ -160,6 +166,61 @@ function Section({ title, children }: { title: string; children: ReactNode }): R
   );
 }
 
+/**
+ * Opening message block shared by the create and edit forms: editable prose
+ * plus a streaming Generate button (THINK model via /opening/generate).
+ * Nothing is persisted until the campaign is saved.
+ */
+function OpeningSection({
+  value,
+  onChange,
+  stream,
+  onGenerate,
+  onStop,
+  disabled,
+}: {
+  value: string;
+  onChange: (next: string) => void;
+  stream: OpeningStreamState;
+  onGenerate: () => void;
+  onStop: () => void;
+  disabled: boolean;
+}): ReactNode {
+  return (
+    <Section title="Opening message">
+      <p className="text-xs text-text-low">Shown as the opening scene when the story starts.</p>
+      <div className="mt-3 flex items-center gap-2">
+        <SecondaryButton onPress={onGenerate} disabled={disabled || stream.streaming}>
+          {stream.streaming ? (
+            <Loader2 size={14} className="animate-spin" />
+          ) : (
+            <Sparkles size={14} strokeWidth={1.75} className="text-accent-amber" />
+          )}
+          Generate opening
+        </SecondaryButton>
+        {stream.streaming && <SecondaryButton onPress={onStop}>Stop</SecondaryButton>}
+      </div>
+      {stream.streaming ? (
+        <div className="mt-3">
+          <PlanPreview plan={stream} onStop={onStop} label="Opening · live" />
+        </div>
+      ) : (
+        <div className="mt-3">
+          <TextArea
+            value={value}
+            rows={6}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder="Opening scene prose. Generate one above or write your own."
+          />
+          {stream.error !== null && (
+            <p className="mt-2 text-xs text-accent-red">{stream.error}</p>
+          )}
+        </div>
+      )}
+    </Section>
+  );
+}
+
 // ---- campaign-new ------------------------------------------------------------
 
 export function CampaignNewPage(): ReactNode {
@@ -167,10 +228,12 @@ export function CampaignNewPage(): ReactNode {
   const [values, setValues] = useState<FormValues>(EMPTY_FORM);
   const [errors, setErrors] = useState<{ title?: string; premise?: string }>({});
   const [planText, setPlanText] = useState('');
+  const [openingText, setOpeningText] = useState('');
   const [createdId, setCreatedId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const { plan, startPlan, stopPlan } = usePlanStream();
+  const { opening, startOpening, stopOpening } = useOpeningStream();
 
   const validate = (): boolean => {
     const next: { title?: string; premise?: string } = {};
@@ -212,8 +275,22 @@ export function CampaignNewPage(): ReactNode {
     );
   };
 
+  const generateOpening = async (): Promise<void> => {
+    if (!validate() || busy || opening.streaming) return;
+    setSaveError(null);
+    let id: string | null = null;
+    try {
+      id = await ensureCreated();
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : String(error));
+      return;
+    }
+    if (id === null) return;
+    await startOpening(id, (prose) => setOpeningText(prose));
+  };
+
   const save = async (): Promise<void> => {
-    if (!validate() || busy || plan.streaming) return;
+    if (!validate() || busy || plan.streaming || opening.streaming) return;
     setBusy(true);
     setSaveError(null);
     try {
@@ -222,6 +299,7 @@ export function CampaignNewPage(): ReactNode {
         premise: values.premise.trim(),
         playerPersona: values.persona.trim(),
         sessionPlan: planText,
+        openingMessage: openingText,
         sceneState: { location: values.location.trim(), presentNpcIds: [] as string[] },
       };
       const saved =
@@ -254,6 +332,15 @@ export function CampaignNewPage(): ReactNode {
           <p className="mt-2 text-xs text-accent-red">{errors.premise}</p>
         )}
       </Section>
+
+      <OpeningSection
+        value={openingText}
+        onChange={setOpeningText}
+        stream={opening}
+        onGenerate={() => void generateOpening()}
+        onStop={stopOpening}
+        disabled={busy}
+      />
 
       <Section title="Session plan">
         <div className="flex items-center gap-2">
@@ -292,7 +379,7 @@ export function CampaignNewPage(): ReactNode {
       {saveError !== null && <p className="mt-4 text-xs text-accent-red">{saveError}</p>}
 
       <div className="sticky bottom-0 -mx-6 mt-8 flex items-center gap-2 border-t border-line bg-bg px-6 py-4">
-        <PrimaryButton onPress={() => void save()} disabled={busy || plan.streaming}>
+        <PrimaryButton onPress={() => void save()} disabled={busy || plan.streaming || opening.streaming}>
           <Save size={14} strokeWidth={1.75} />
           Save
         </PrimaryButton>
@@ -328,6 +415,7 @@ export function CampaignEditPage(): ReactNode {
         },
   );
   const [planText, setPlanText] = useState(initial?.sessionPlan ?? '');
+  const [openingText, setOpeningText] = useState(initial?.openingMessage ?? '');
   const [errors, setErrors] = useState<{ title?: string; premise?: string }>({});
   const [busy, setBusy] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -345,6 +433,7 @@ export function CampaignEditPage(): ReactNode {
         if (!dirtyRef.current) {
           setValues(toForm(fresh));
           setPlanText(fresh.sessionPlan);
+          setOpeningText(fresh.openingMessage);
         }
       })
       .catch(() => {
@@ -361,6 +450,7 @@ export function CampaignEditPage(): ReactNode {
   };
 
   const { plan, startPlan, stopPlan } = usePlanStream();
+  const { opening, startOpening, stopOpening } = useOpeningStream();
 
   if (targetId === null || loaded === null) {
     return (
@@ -389,8 +479,14 @@ export function CampaignEditPage(): ReactNode {
     );
   };
 
+  const generateOpening = async (): Promise<void> => {
+    if (busy || opening.streaming) return;
+    setSaveError(null);
+    await startOpening(loaded.id, (prose) => setOpeningText(prose));
+  };
+
   const save = async (): Promise<void> => {
-    if (!validate() || busy || plan.streaming) return;
+    if (!validate() || busy || plan.streaming || opening.streaming) return;
     setBusy(true);
     setSaveError(null);
     try {
@@ -400,6 +496,7 @@ export function CampaignEditPage(): ReactNode {
         premise: values.premise.trim(),
         playerPersona: values.persona.trim(),
         sessionPlan: planText,
+        openingMessage: openingText,
         sceneState: {
           location: values.location.trim(),
           presentNpcIds: loaded.sceneState.presentNpcIds,
@@ -443,6 +540,15 @@ export function CampaignEditPage(): ReactNode {
         )}
       </Section>
 
+      <OpeningSection
+        value={openingText}
+        onChange={setOpeningText}
+        stream={opening}
+        onGenerate={() => void generateOpening()}
+        onStop={stopOpening}
+        disabled={busy}
+      />
+
       <Section title="Session plan">
         {plan.streaming ? (
           <PlanPreview plan={plan} onStop={stopPlan} />
@@ -485,7 +591,7 @@ export function CampaignEditPage(): ReactNode {
       {saveError !== null && <p className="mt-4 text-xs text-accent-red">{saveError}</p>}
 
       <div className="sticky bottom-0 -mx-6 mt-8 flex items-center gap-2 border-t border-line bg-bg px-6 py-4">
-        <PrimaryButton onPress={() => void save()} disabled={busy || plan.streaming}>
+        <PrimaryButton onPress={() => void save()} disabled={busy || plan.streaming || opening.streaming}>
           <Save size={14} strokeWidth={1.75} />
           Save
         </PrimaryButton>

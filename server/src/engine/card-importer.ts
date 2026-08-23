@@ -52,6 +52,7 @@ function toNpc(card: RawCard, npcId: string, sourceCard: string | null): Npc {
   const description = data?.description ?? card.description ?? '';
   const personality = data?.personality ?? card.personality ?? '';
   const mesExample = data?.mes_example ?? card.mes_example ?? '';
+  const firstMessage = data?.first_mes ?? card.first_mes ?? '';
 
   // Parse mes_example into voice examples (split by common delimiters).
   let voiceExamples: string[] = [];
@@ -69,6 +70,7 @@ function toNpc(card: RawCard, npcId: string, sourceCard: string | null): Npc {
     description,
     personality,
     voiceExamples,
+    firstMessage,
     agency: defaultNpcAgency(),
     trackers: {},
     sourceCard,

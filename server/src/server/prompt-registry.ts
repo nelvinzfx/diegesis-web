@@ -11,6 +11,7 @@ import { DEFAULT_NARRATOR_VOICE } from '../engine/stages/scene.js';
 import * as MemoryExtractionStage from '../engine/stages/memory-extraction.js';
 import { DEFAULT_TITLE_SYSTEM } from './title-service.js';
 import { DEFAULT_PLAN_SYSTEM_PROMPT } from '../routes/plan.js';
+import { DEFAULT_OPENING_SYSTEM_PROMPT } from '../routes/opening.js';
 import { STAGE_KEYS, STAGE_VARIABLES, type StageKey } from '../engine/prompt-templates.js';
 
 export interface PromptStageInfo {
@@ -75,6 +76,14 @@ export const PROMPT_STAGES: PromptStageInfo[] = [
     description: 'Names an untitled campaign after the first completed turn.',
     variables: STAGE_VARIABLES.title,
     default: DEFAULT_TITLE_SYSTEM,
+  },
+  {
+    key: 'opening',
+    label: 'Opening scene',
+    description:
+      'Drafts the first message shown when the story starts. Streams via the opening generator on the campaign page.',
+    variables: STAGE_VARIABLES.opening,
+    default: DEFAULT_OPENING_SYSTEM_PROMPT,
   },
 ];
 

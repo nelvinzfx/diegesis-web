@@ -102,6 +102,7 @@ describe('CharacterCardImporter', () => {
     expect(npc.name).toBe('Test Character');
     expect(npc.description).toBe('A brave warrior from the north');
     expect(npc.personality).toBe('Courageous and honorable');
+    expect(npc.firstMessage).toBe('Hello, traveler!');
     expect(npc.voiceExamples.length).toBeGreaterThanOrEqual(2);
     expect(npc.sourceCard).toBeNull();
   });
@@ -122,6 +123,29 @@ describe('CharacterCardImporter', () => {
     expect(npc.description).toBe('Character at root');
     expect(npc.personality).toBe('Mysterious');
     expect(npc.voiceExamples.length).toBeGreaterThan(0);
+  });
+
+  it('maps root-level first_mes when no data block exists', () => {
+    const jsonCard = JSON.stringify({
+      name: 'Root First',
+      description: 'x',
+      first_mes: 'Welcome to the docks, stranger.',
+    });
+    const npc = fromJson(jsonCard, 'npc-root-first');
+    expect(npc.firstMessage).toBe('Welcome to the docks, stranger.');
+  });
+
+  it('data-block first_mes wins over a stale root copy', () => {
+    const jsonCard = JSON.stringify({
+      first_mes: 'root copy',
+      data: { name: 'Dup', first_mes: 'data copy' },
+    });
+    expect(fromJson(jsonCard, 'npc-dup').firstMessage).toBe('data copy');
+  });
+
+  it('missing first_mes maps to empty string', () => {
+    const npc = fromJson('{"data":{"name":"No First"}}', 'npc-nofirst');
+    expect(npc.firstMessage).toBe('');
   });
 
   it('imports a PNG card and stores base64 sourceCard', () => {
@@ -185,6 +209,7 @@ describe('CharacterCardImporter', () => {
     expect(npc.name).toBe('Minimal NPC');
     expect(npc.description).toBe('');
     expect(npc.personality).toBe('');
+    expect(npc.firstMessage).toBe('');
     expect(npc.voiceExamples).toEqual([]);
   });
 

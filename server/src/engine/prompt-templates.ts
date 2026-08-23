@@ -16,6 +16,7 @@ export const STAGE_KEYS = [
   'memory-extraction',
   'session-plan',
   'title',
+  'opening',
 ] as const;
 
 export type StageKey = (typeof STAGE_KEYS)[number];
@@ -46,6 +47,7 @@ export const STAGE_VARIABLES: Record<StageKey, readonly string[]> = {
   'memory-extraction': ['playerInput', 'synopsis', 'sceneOutput'],
   'session-plan': ['title', 'premise', 'playerPersona'],
   title: ['maxChars', 'language', 'playerInput', 'synopsis'],
+  opening: ['title', 'premise', 'sessionPlan', 'location', 'playerPersona', 'presentNpcs', 'language'],
 };
 
 /** Variable names referenced by a template body ({{token}} tokens). */

@@ -15,6 +15,7 @@ interface CampaignPatch {
   premise?: string;
   sessionPlan?: string;
   playerPersona?: string;
+  openingMessage?: string;
   sceneState?: SceneState;
   thinkModel?: StageModelSelection | null;
   writeModel?: StageModelSelection | null;
@@ -27,6 +28,7 @@ function applyPatch(campaign: Campaign, body: CampaignPatch): Campaign {
     ...(typeof body.premise === 'string' ? { premise: body.premise } : {}),
     ...(typeof body.sessionPlan === 'string' ? { sessionPlan: body.sessionPlan } : {}),
     ...(typeof body.playerPersona === 'string' ? { playerPersona: body.playerPersona } : {}),
+    ...(typeof body.openingMessage === 'string' ? { openingMessage: body.openingMessage } : {}),
     ...(body.sceneState !== undefined && typeof body.sceneState === 'object'
       ? {
           sceneState: {
@@ -82,6 +84,7 @@ export function registerCampaignRoutes(router: Router, ctx: RouteContext): void 
           premise: '',
           sessionPlan: '',
           playerPersona: '',
+          openingMessage: '',
           sceneState: defaultSceneState(),
           thinkModel: null,
           writeModel: null,

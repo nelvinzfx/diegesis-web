@@ -159,10 +159,15 @@ export function formatPrompt(context: SceneContext): string {
     sections.push(`## Present NPCs\n${npcsText}`);
   }
 
-  // 4. Filtered history
+  // 4. Filtered history. A turn with no player input (the opening scene,
+  // turn 0) contributes only its sceneOutput — never an empty player line.
   if (context.filteredHistory.length > 0) {
     const historyText = context.filteredHistory
-      .map((entry) => `**Player:** ${entry.playerInput}\n\n${entry.sceneOutput}`)
+      .map((entry) =>
+        entry.playerInput.trim().length > 0
+          ? `**Player:** ${entry.playerInput}\n\n${entry.sceneOutput}`
+          : entry.sceneOutput,
+      )
       .join('\n\n');
     sections.push(`## Previous Events\n${historyText}`);
   }
