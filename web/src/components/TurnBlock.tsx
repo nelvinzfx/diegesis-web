@@ -108,8 +108,13 @@ export function TurnBlock({
         isSelected ? 'bg-surface-1 shadow-[inset_2px_0_0_0] shadow-accent-amber' : '',
       )}
     >
-      {/* Hover toolbar */}
-      <div className="absolute -top-1 right-0 z-10 hidden items-center gap-0.5 rounded-lg bg-bg/90 px-1 group-hover:flex">
+      {/* Toolbar: hover on pointers that have it, selection on touchscreens */}
+      <div
+        className={cn(
+          'absolute -top-1 right-0 z-10 items-center gap-0.5 rounded-lg bg-bg/90 px-1 group-hover:flex',
+          isSelected ? 'flex' : 'hidden',
+        )}
+      >
         <IconActionButton
           icon={RotateCcw}
           label="Regenerate"
