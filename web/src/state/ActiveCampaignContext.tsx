@@ -107,6 +107,11 @@ interface ActiveCampaignValue {
   editingTurnIndex: number | null;
   clearEditingTurn: () => void;
   deleteFrom: (turnIndex: number) => Promise<void>;
+  /** In-place edit of a turn (cue and/or variant prose), no rerun. False on failure. */
+  editTurn: (
+    turnIndex: number,
+    fields: { playerInput?: string; variantId?: string; sceneOutput?: string },
+  ) => Promise<boolean>;
   stop: () => void;
 
   settings: PublicSettingsView | null;
@@ -453,6 +458,26 @@ export function ActiveCampaignProvider({ children }: { children: ReactNode }) {
     [campaignId, refreshTurns],
   );
 
+  const editTurn = useCallback(
+    async (
+      turnIndex: number,
+      fields: { playerInput?: string; variantId?: string; sceneOutput?: string },
+    ): Promise<boolean> => {
+      if (campaignId === null) return false;
+      try {
+        await api.editTurn(campaignId, turnIndex, fields);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        setStreamError(message);
+        toast.danger(message, { timeout: 8000 });
+        return false;
+      }
+      await refreshTurns();
+      return true;
+    },
+    [campaignId, refreshTurns],
+  );
+
   const stop = useCallback(() => {
     abortRef.current?.abort();
   }, []);
@@ -554,6 +579,7 @@ export function ActiveCampaignProvider({ children }: { children: ReactNode }) {
       editingTurnIndex,
       clearEditingTurn,
       deleteFrom,
+      editTurn,
       stop,
       settings,
       apiKeyMissing,
@@ -591,6 +617,7 @@ export function ActiveCampaignProvider({ children }: { children: ReactNode }) {
       editingTurnIndex,
       clearEditingTurn,
       deleteFrom,
+      editTurn,
       stop,
       settings,
       apiKeyMissing,

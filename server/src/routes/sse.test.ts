@@ -280,6 +280,71 @@ describe('POST /api/campaigns/:id/turns (SSE)', () => {
     ).json()) as { turns: Array<{ index: number }> };
     expect(listed.turns.map((t) => t.index)).toEqual([0]);
   });
+
+  it('PUT /turns/:index edits cue text and variant prose in place', async () => {
+    const h = await fresh();
+    const port = await h.listen();
+    const base = `http://127.0.0.1:${port}`;
+    const campaignId = await makeCampaign(base);
+    await h.hub.turns.save(campaignId, {
+      index: 0,
+      playerInput: 'original action',
+      variants: [
+        {
+          id: 'v0',
+          synopsis: 's',
+          sceneOutput: 'old prose',
+          routerDecision: null,
+          presentNpcIds: [],
+          mechanicResults: [],
+          interrupted: false,
+          timestamp: 0,
+          stageEvents: [],
+          reasoning: null,
+        },
+      ],
+      createdAt: 1,
+    });
+    await h.hub.turns.save(campaignId, {
+      index: 1,
+      playerInput: 'second action',
+      variants: [],
+      createdAt: 2,
+    });
+
+    const res = await fetch(`${base}/api/campaigns/${campaignId}/turns/0`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ playerInput: 'edited action', sceneOutput: 'new prose' }),
+    });
+    expect(res.status).toBe(200);
+    const { turn } = (await res.json()) as {
+      turn: { playerInput: string; variants: Array<{ sceneOutput: string }> };
+    };
+    expect(turn.playerInput).toBe('edited action');
+    expect(turn.variants[0].sceneOutput).toBe('new prose');
+
+    // Garbage and unknowns are rejected.
+    const empty = await fetch(`${base}/api/campaigns/${campaignId}/turns/0`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({}),
+    });
+    expect(empty.status).toBe(400);
+    const missing = await fetch(`${base}/api/campaigns/${campaignId}/turns/9`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ playerInput: 'x' }),
+    });
+    expect(missing.status).toBe(404);
+    // Turn 0 (opening) may be blank by design; a real turn may not.
+    const blankCue = await fetch(`${base}/api/campaigns/${campaignId}/turns/1`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ playerInput: '   ' }),
+    });
+    expect(blankCue.status).toBe(400);
+  });
 });
 
 describe('POST /api/campaigns/:id/plan (SSE)', () => {

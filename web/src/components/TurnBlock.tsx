@@ -22,7 +22,8 @@ import { cn } from '../lib/cn';
 import { formatInline } from '../lib/markdown-lite';
 import type { Turn, TurnVariant } from '../lib/types';
 import { useActiveCampaign } from '../state/ActiveCampaignContext';
-import { IconActionButton } from './common';
+import { IconActionButton, PrimaryButton, SecondaryButton } from './common';
+import { toast } from '@heroui/react';
 import { ReasoningStream, StageProgress } from './InspectorPanel';
 import { Popover } from '@heroui/react';
 
@@ -41,10 +42,60 @@ export function TurnBlock({
   isSelected: boolean;
   onSelect: () => void;
 }): ReactNode {
-  const { regenerate, beginEditResend, deleteFrom, cycleVariant, variantByTurn, streaming } =
+  const { regenerate, send, editTurn, deleteFrom, cycleVariant, variantByTurn, streaming } =
     useActiveCampaign();
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [draftCue, setDraftCue] = useState('');
+  const [draftProse, setDraftProse] = useState('');
+  const [saving, setSaving] = useState(false);
   const busy = streaming !== null;
+
+  const enterEdit = (): void => {
+    setDraftCue(turn.playerInput);
+    setDraftProse(variant?.sceneOutput ?? '');
+    setEditing(true);
+  };
+
+  const saveEdit = async (): Promise<void> => {
+    const cue = draftCue.trim();
+    if (turn.playerInput.trim().length > 0 && cue.length === 0) {
+      toast.warning('The action text cannot be empty.');
+      return;
+    }
+    setSaving(true);
+    const proseDirty = variant !== null && draftProse !== variant.sceneOutput;
+    const ok = await editTurn(turn.index, {
+      ...(turn.playerInput.trim().length > 0 ? { playerInput: cue } : {}),
+      ...(proseDirty && variant !== null
+        ? { variantId: variant.id, sceneOutput: draftProse }
+        : {}),
+    });
+    setSaving(false);
+    if (ok) setEditing(false);
+  };
+
+  const saveAndRerun = async (): Promise<void> => {
+    const cue = draftCue.trim();
+    if (cue.length === 0) {
+      toast.warning('The action text cannot be empty.');
+      return;
+    }
+    setSaving(true);
+    if (variant !== null && draftProse !== variant.sceneOutput) {
+      const ok = await editTurn(turn.index, {
+        variantId: variant.id,
+        sceneOutput: draftProse,
+      });
+      if (!ok) {
+        setSaving(false);
+        return;
+      }
+    }
+    setSaving(false);
+    setEditing(false);
+    void send(cue, turn.index);
+  };
 
   const shownCount = turn.variants.length + (live && variant === null ? 1 : 0);
   const currentIdx = Math.min(variantByTurn[turn.index] ?? 0, Math.max(0, turn.variants.length - 1));
@@ -67,9 +118,9 @@ export function TurnBlock({
         />
         <IconActionButton
           icon={PencilLine}
-          label="Edit and resend"
+          label="Edit turn"
           disabled={busy}
-          onPress={() => beginEditResend(turn.index)}
+          onPress={enterEdit}
         />
         <IconActionButton
           icon={Copy}
@@ -115,9 +166,51 @@ export function TurnBlock({
         </Popover>
       </div>
 
+      {editing ? (
+        <div className="mt-2 space-y-3 rounded-xl border border-line bg-surface-1 p-3">
+          {turn.playerInput.trim().length > 0 && (
+            <label className="block">
+              <span className="mb-1.5 block font-mono text-[10px] uppercase tracking-[0.14em] text-text-low">
+                Your action
+              </span>
+              <textarea
+                value={draftCue}
+                onChange={(e) => setDraftCue(e.target.value)}
+                rows={2}
+                className="w-full resize-none rounded-lg border border-line bg-bg px-3 py-2 text-sm leading-relaxed text-text-hi outline-none transition-colors focus:border-line-strong"
+              />
+            </label>
+          )}
+          <label className="block">
+            <span className="mb-1.5 block font-mono text-[10px] uppercase tracking-[0.14em] text-text-low">
+              Scene
+            </span>
+            <textarea
+              value={draftProse}
+              onChange={(e) => setDraftProse(e.target.value)}
+              rows={7}
+              className="w-full resize-y rounded-lg border border-line bg-bg px-3 py-2 text-sm leading-relaxed text-text-hi outline-none transition-colors focus:border-line-strong"
+            />
+          </label>
+          <div className="flex items-center justify-end gap-2">
+            <SecondaryButton disabled={saving} onPress={() => setEditing(false)}>
+              Cancel
+            </SecondaryButton>
+            {turn.playerInput.trim().length > 0 && (
+              <SecondaryButton disabled={saving} onPress={() => void saveAndRerun()}>
+                Save and rerun
+              </SecondaryButton>
+            )}
+            <PrimaryButton disabled={saving} onPress={() => void saveEdit()}>
+              {saving ? 'Saving...' : 'Save'}
+            </PrimaryButton>
+          </div>
+        </div>
+      ) : null}
+
       {/* Action cue: player input. Turn 0 (the opening scene) has none —
           skip the cue entirely instead of rendering an empty YOU line. */}
-      {turn.playerInput.trim().length > 0 && (
+      {!editing && turn.playerInput.trim().length > 0 && (
         <div className="ml-4 border-l-2 border-line-strong pl-4">
           <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-text-low">You</span>
           <p className="mt-0.5 whitespace-pre-wrap text-sm leading-relaxed text-text-mid">
@@ -126,9 +219,10 @@ export function TurnBlock({
         </div>
       )}
 
-      {live && <LivePipeline />}
+      {!editing && live && <LivePipeline />}
 
       {/* Scene prose */}
+      {!editing && (
       <div className="dg-prose mt-4 border-l-2 border-line pl-4">
         {live ? (
           <StreamingProse text={streaming?.prose ?? ''} />
@@ -136,6 +230,7 @@ export function TurnBlock({
           <StaticProse text={variant?.sceneOutput ?? ''} interrupted={variant?.interrupted ?? false} />
         )}
       </div>
+      )}
 
       {/* Variant switcher */}
       {shownCount > 1 && (

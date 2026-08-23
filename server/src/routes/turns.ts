@@ -60,6 +60,57 @@ export function registerTurnRoutes(router: Router, ctx: RouteContext): void {
     }),
   );
 
+  // In-place edit of an existing turn: the player's cue text and/or one
+  // variant's scene prose, without rerunning anything. variantId picks the
+  // variant to edit; omitted = the latest variant.
+  router.put(
+    '/campaigns/:id/turns/:index',
+    wrap(async (req, res) => {
+      if (!(await getCampaignOr404(ctx, req, res))) return;
+      const campaignId = param(req, 'id');
+      const index = Number.parseInt(param(req, 'index'), 10);
+      if (!Number.isInteger(index) || index < 0) {
+        res.status(400).json({ ok: false, error: 'invalid_index' });
+        return;
+      }
+      const body = (req.body ?? {}) as {
+        playerInput?: unknown;
+        variantId?: unknown;
+        sceneOutput?: unknown;
+      };
+      const editCue = typeof body.playerInput === 'string';
+      const editProse = typeof body.sceneOutput === 'string';
+      if (!editCue && !editProse) {
+        res.status(400).json({ ok: false, error: 'nothing_to_update' });
+        return;
+      }
+      if (editCue && (body.playerInput as string).trim().length === 0 && index !== 0) {
+        res.status(400).json({ ok: false, error: 'player_input_required' });
+        return;
+      }
+      const turn = await ctx.hub.turns.get(campaignId, index);
+      if (!turn) {
+        res.status(404).json({ ok: false, error: 'turn_not_found' });
+        return;
+      }
+      if (editCue) turn.playerInput = (body.playerInput as string).trim();
+      if (editProse) {
+        const variantId = typeof body.variantId === 'string' ? body.variantId : null;
+        const variant =
+          variantId !== null
+            ? turn.variants.find((v) => v.id === variantId)
+            : turn.variants[turn.variants.length - 1];
+        if (!variant) {
+          res.status(404).json({ ok: false, error: 'variant_not_found' });
+          return;
+        }
+        variant.sceneOutput = body.sceneOutput as string;
+      }
+      await ctx.hub.turns.save(campaignId, turn);
+      res.json({ turn });
+    }),
+  );
+
   router.post(
     '/campaigns/:id/turns',
     wrap(async (req, res) => {

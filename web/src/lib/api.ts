@@ -166,6 +166,18 @@ export function deleteTurnFrom(campaignId: string, index: number): Promise<void>
   ).then(() => undefined);
 }
 
+/** In-place edit of a turn's cue text and/or one variant's prose (no rerun). */
+export function editTurn(
+  campaignId: string,
+  index: number,
+  fields: { playerInput?: string; variantId?: string; sceneOutput?: string },
+): Promise<{ turn: Turn }> {
+  return request<{ turn: Turn }>(
+    `/campaigns/${encodeURIComponent(campaignId)}/turns/${index}`,
+    { method: 'PUT', body: JSON.stringify(fields) },
+  );
+}
+
 export interface TurnStreamParams {
   playerInput: string;
   /** Regenerate / edit+resend target; null appends a new turn. */
