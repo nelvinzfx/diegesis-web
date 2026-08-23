@@ -136,7 +136,6 @@ export interface PublicSettingsView {
   anthropicKeySet: boolean;
   language: string;
   thinkingEffort: string;
-  thinkMaxTokens: number;
   writeMaxTokens: number;
   contextWindowTokens: number;
 }

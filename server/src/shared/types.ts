@@ -142,7 +142,6 @@ export const APP_SETTINGS_DEFAULTS = {
   anthropicApiKey: '',
   language: 'English',
   thinkingEffort: 'medium',
-  thinkMaxTokens: 4096,
   writeMaxTokens: 8192,
   contextWindowTokens: 32768,
 } as const;
@@ -157,7 +156,6 @@ export interface AppSettings {
   language: string;
   /** One of "low" | "medium" | "high" | "xhigh"; normalized at use sites. */
   thinkingEffort: string;
-  thinkMaxTokens: number;
   writeMaxTokens: number;
   contextWindowTokens: number;
 }
@@ -171,7 +169,6 @@ export function defaultAppSettings(): AppSettings {
     anthropicApiKey: APP_SETTINGS_DEFAULTS.anthropicApiKey,
     language: APP_SETTINGS_DEFAULTS.language,
     thinkingEffort: APP_SETTINGS_DEFAULTS.thinkingEffort,
-    thinkMaxTokens: APP_SETTINGS_DEFAULTS.thinkMaxTokens,
     writeMaxTokens: APP_SETTINGS_DEFAULTS.writeMaxTokens,
     contextWindowTokens: APP_SETTINGS_DEFAULTS.contextWindowTokens,
   };

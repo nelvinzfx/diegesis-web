@@ -46,7 +46,6 @@ describe('buildSettingsPayload', () => {
     writeModel: { provider: 'anthropic', model: 'claude-3-5-sonnet-20241022' },
     language: 'English',
     thinkingEffort: 'high',
-    thinkMaxTokens: 1024,
     writeMaxTokens: 2048,
     contextWindowTokens: 32768,
   };

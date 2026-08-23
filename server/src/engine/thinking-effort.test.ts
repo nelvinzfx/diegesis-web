@@ -34,23 +34,21 @@ describe('ThinkingEffort', () => {
     expect(ThinkingEffort.normalize('x-high')).toBe('medium');
   });
 
-  // ---- clamping ---------------------------------------------------------
+  // ---- derived max_tokens (budget + headroom invariant) ------------------
 
-  it('budget is clamped to thinkMaxTokens minus headroom', () => {
-    // xhigh wants 32768, but 8192 - 1024 = 7168 is all that fits.
-    expect(ThinkingEffort.effectiveAnthropicBudget('xhigh', 8_192)).toBe(7_168);
-    // high wants 16384; with 20k max tokens it fits unclamped.
-    expect(ThinkingEffort.effectiveAnthropicBudget('high', 20_000)).toBe(16_384);
+  it('think max tokens is derived from the effort level', () => {
+    expect(ThinkingEffort.thinkMaxTokensFor('low')).toBe(2_048);
+    expect(ThinkingEffort.thinkMaxTokensFor('medium')).toBe(5_120);
+    expect(ThinkingEffort.thinkMaxTokensFor('high')).toBe(17_408);
+    expect(ThinkingEffort.thinkMaxTokensFor('xhigh')).toBe(33_792);
+    expect(ThinkingEffort.thinkMaxTokensFor('banana')).toBe(5_120);
   });
 
-  it('budget below the anthropic minimum is omitted', () => {
-    // 2048 - 1024 = 1024 → exactly the floor, still allowed.
-    expect(ThinkingEffort.effectiveAnthropicBudget('low', 2_048)).toBe(1_024);
-    // 2047 - 1024 = 1023 → under the floor, omit.
-    expect(ThinkingEffort.effectiveAnthropicBudget('low', 2_047)).toBeNull();
-    // Degenerate max_tokens: omit for every level.
-    expect(ThinkingEffort.effectiveAnthropicBudget('xhigh', 1_024)).toBeNull();
-    expect(ThinkingEffort.effectiveAnthropicBudget('medium', 0)).toBeNull();
+  it('derived max_tokens always leaves headroom above the budget', () => {
+    for (const level of ThinkingEffort.LEVELS) {
+      const budget = ThinkingEffort.anthropicBudgetTokens(level);
+      expect(ThinkingEffort.thinkMaxTokensFor(level)).toBe(budget + 1_024);
+    }
   });
 
   // ---- request body construction ---------------------------------------
@@ -67,15 +65,15 @@ describe('ThinkingEffort', () => {
     expect(body[0].value).toBe('medium');
   });
 
-  it('anthropic body is thinking enabled with the clamped budget', () => {
-    const body = ThinkingEffort.anthropicCustomBody('xhigh', 8_192);
+  it('anthropic body is thinking enabled with the level budget', () => {
+    const body = ThinkingEffort.anthropicCustomBody('xhigh');
     expect(body).toHaveLength(1);
     expect(body[0].key).toBe('thinking');
-    expect(body[0].value).toEqual({ type: 'enabled', budget_tokens: 7_168 });
+    expect(body[0].value).toEqual({ type: 'enabled', budget_tokens: 32_768 });
   });
 
-  it('anthropic body is omitted when the clamped budget is under 1024', () => {
-    expect(ThinkingEffort.anthropicCustomBody('low', 2_047)).toEqual([]);
-    expect(ThinkingEffort.anthropicCustomBody('xhigh', 1_024)).toEqual([]);
+  it('anthropic body normalizes invalid levels to medium', () => {
+    const body = ThinkingEffort.anthropicCustomBody('nope');
+    expect(body[0].value).toEqual({ type: 'enabled', budget_tokens: 4_096 });
   });
 });

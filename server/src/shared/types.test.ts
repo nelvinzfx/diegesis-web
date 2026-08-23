@@ -16,7 +16,6 @@ describe('shared model JSON field names', () => {
     expect(s.anthropicApiKey).toBe('');
     expect(s.language).toBe('English');
     expect(s.thinkingEffort).toBe('medium');
-    expect(s.thinkMaxTokens).toBe(4096);
     expect(s.writeMaxTokens).toBe(8192);
     expect(s.contextWindowTokens).toBe(32768);
   });

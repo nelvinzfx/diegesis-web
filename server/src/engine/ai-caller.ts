@@ -200,14 +200,14 @@ export function sceneLanguageDirective(prompt: string, language: string): string
  * DefaultAiCaller.thinkGenerationParams.
  */
 export function thinkRequestExtras(
-  settings: Pick<AppSettings, 'thinkingEffort' | 'thinkMaxTokens'>,
+  settings: Pick<AppSettings, 'thinkingEffort'>,
   provider: string,
   temperature: number,
 ): { customBody: ThinkingEffort.CustomBody[]; temperature: number | null } {
   let effortBody: ThinkingEffort.CustomBody[];
   switch (provider) {
     case PROVIDER_ANTHROPIC:
-      effortBody = ThinkingEffort.anthropicCustomBody(settings.thinkingEffort, settings.thinkMaxTokens);
+      effortBody = ThinkingEffort.anthropicCustomBody(settings.thinkingEffort);
       break;
     case PROVIDER_OPENAI:
       effortBody = ThinkingEffort.openAiCustomBody(settings.thinkingEffort);

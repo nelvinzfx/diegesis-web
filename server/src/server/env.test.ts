@@ -74,16 +74,15 @@ describe('resolveEffectiveSettings precedence', () => {
     });
     expect(s.openaiApiKey).toBe('');
     expect(s.openaiBaseUrl).toBe('https://api.openai.com/v1');
-    expect(s.thinkMaxTokens).toBe(4096);
+    expect(s.writeMaxTokens).toBe(8192);
   });
 
   it('overlays non-key fields only when present', () => {
     const s = resolveEffectiveSettings(
-      { language: 'Indonesian', thinkMaxTokens: 2048, thinkingEffort: 'high' },
+      { language: 'Indonesian', thinkingEffort: 'high' },
       envDefaults,
     );
     expect(s.language).toBe('Indonesian');
-    expect(s.thinkMaxTokens).toBe(2048);
     expect(s.thinkingEffort).toBe('high');
     expect(s.writeMaxTokens).toBe(8192);
   });

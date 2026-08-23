@@ -2,12 +2,13 @@
  * Thinking effort for THINK-stage calls (router / plot / agency / extraction —
  * the generateStructured and streamThink paths). Scene prose is never affected.
  *
- * Ported from engine/ai/ThinkingEffort.kt. Pure functions only:
  *  - openai-compat: the level string goes out as a top-level `reasoning_effort`.
  *  - anthropic: the level maps to an extended-thinking token budget
- *    (`thinking: {"type": "enabled", "budget_tokens": N}`), clamped so the
- *    budget always stays below max_tokens, and omitted entirely when the
- *    clamped budget would fall under Anthropic's 1024-token minimum.
+ *    (`thinking: {"type": "enabled", "budget_tokens": N}`).
+ *
+ * Since the user-facing thinkMaxTokens setting was removed, the THINK call's
+ * max_tokens is derived from the effort level: budget + answer headroom, so
+ * Anthropic's hard rule (budget_tokens < max_tokens) always holds.
  */
 
 export type CustomBody = { key: string; value: unknown };
@@ -20,7 +21,7 @@ export const LEVELS = ['low', 'medium', 'high', 'xhigh'];
 /** Anthropic's hard floor for `budget_tokens`. */
 export const MIN_BUDGET_TOKENS = 1024;
 
-/** Headroom reserved for the visible answer: budget <= thinkMaxTokens - 1024. */
+/** Headroom reserved for the visible answer above the thinking budget. */
 export const ANSWER_HEADROOM_TOKENS = 1024;
 
 /** Defensive: any unknown/legacy stored value falls back to DEFAULT. */
@@ -30,7 +31,7 @@ export function normalize(raw: string | null | undefined): string {
   return LEVELS.includes(level) ? level : DEFAULT;
 }
 
-/** Level → Anthropic extended-thinking budget, before clamping. */
+/** Level → Anthropic extended-thinking budget. */
 export function anthropicBudgetTokens(level: string): number {
   switch (normalize(level)) {
     case 'low':
@@ -47,17 +48,11 @@ export function anthropicBudgetTokens(level: string): number {
 }
 
 /**
- * Effective Anthropic budget after clamping, or null when the thinking object
- * must be omitted. Anthropic rejects budget_tokens < 1024 and
- * budget_tokens >= max_tokens, so:
- *   effective = min(budget, thinkMaxTokens - 1024); null if < 1024.
+ * max_tokens for THINK calls, derived from the effort level so that
+ * budget_tokens < max_tokens always holds (Anthropic requirement).
  */
-export function effectiveAnthropicBudget(level: string, thinkMaxTokens: number): number | null {
-  const clamped = Math.min(
-    anthropicBudgetTokens(level),
-    thinkMaxTokens - ANSWER_HEADROOM_TOKENS,
-  );
-  return clamped < MIN_BUDGET_TOKENS ? null : clamped;
+export function thinkMaxTokensFor(level: string): number {
+  return anthropicBudgetTokens(level) + ANSWER_HEADROOM_TOKENS;
 }
 
 /** OpenAI-compatible: top-level `reasoning_effort: "<level>"`. */
@@ -65,12 +60,9 @@ export function openAiCustomBody(level: string): CustomBody[] {
   return [{ key: 'reasoning_effort', value: normalize(level) }];
 }
 
-/**
- * Anthropic: `thinking: {"type": "enabled", "budget_tokens": N}` with the
- * clamped budget, or an empty array when the budget is too small to send.
- */
-export function anthropicCustomBody(level: string, thinkMaxTokens: number): CustomBody[] {
-  const budget = effectiveAnthropicBudget(level, thinkMaxTokens);
-  if (budget === null) return [];
-  return [{ key: 'thinking', value: { type: 'enabled', budget_tokens: budget } }];
+/** Anthropic: `thinking: {"type": "enabled", "budget_tokens": N}`. */
+export function anthropicCustomBody(level: string): CustomBody[] {
+  return [
+    { key: 'thinking', value: { type: 'enabled', budget_tokens: anthropicBudgetTokens(level) } },
+  ];
 }

@@ -15,9 +15,10 @@
  *
  * THINK-call extras come from the engine's thinkRequestExtras/ThinkingEffort:
  *  - openai-compat: top-level reasoning_effort on THINK calls only.
- *  - anthropic: thinking {type, budget_tokens} clamped by ThinkingEffort,
+ *  - anthropic: thinking {type, budget_tokens} from ThinkingEffort,
  *    temperature omitted whenever thinking is attached.
- * max_tokens is thinkMaxTokens / writeMaxTokens respectively.
+ * max_tokens is derived from the effort level for THINK calls
+ * (budget + 1024) and writeMaxTokens for prose.
  *
  * AbortSignal support: withSignal(signal) returns a scoped caller whose SDK
  * requests all carry the signal — the turn route aborts it on client
@@ -37,6 +38,7 @@ import {
   structuredWithRetry,
   thinkRequestExtras,
 } from '../engine/ai-caller.js';
+import * as ThinkingEffort from '../engine/thinking-effort.js';
 import type { AppSettings } from '../shared/types.js';
 
 const PROSE_TEMPERATURE = 0.7;
@@ -117,7 +119,7 @@ export class DefaultAiCaller implements AiCaller {
       const response = await this.anthropicClient(s).messages.create(
         {
           model: s.thinkModel.model,
-          max_tokens: s.thinkMaxTokens,
+          max_tokens: ThinkingEffort.thinkMaxTokensFor(s.thinkingEffort),
           system: systemContent(messages),
           messages: chatMessages(messages),
           ...(thinking !== undefined ? { thinking } : { temperature: PROSE_TEMPERATURE }),
@@ -136,7 +138,7 @@ export class DefaultAiCaller implements AiCaller {
     const body = {
       model: s.thinkModel.model,
       messages: messages.map((m) => ({ role: m.role, content: m.content })),
-      max_tokens: s.thinkMaxTokens,
+      max_tokens: ThinkingEffort.thinkMaxTokensFor(s.thinkingEffort),
       ...(temperature !== null ? { temperature } : {}),
       ...extras,
     };
@@ -197,7 +199,7 @@ export class DefaultAiCaller implements AiCaller {
       yield* this.streamAnthropic(
         {
           model: s.thinkModel.model,
-          max_tokens: s.thinkMaxTokens,
+          max_tokens: ThinkingEffort.thinkMaxTokensFor(s.thinkingEffort),
           system: systemPrompt,
           messages: [{ role: 'user', content: userPrompt }],
           ...(thinking !== undefined ? { thinking } : {}),
@@ -215,7 +217,7 @@ export class DefaultAiCaller implements AiCaller {
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt },
         ],
-        max_tokens: s.thinkMaxTokens,
+        max_tokens: ThinkingEffort.thinkMaxTokensFor(s.thinkingEffort),
         stream: true,
         ...(temperature !== null ? { temperature } : {}),
         ...extras,

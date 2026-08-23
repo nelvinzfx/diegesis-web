@@ -17,7 +17,6 @@ const EDITABLE_KEYS = [
   'anthropicApiKey',
   'language',
   'thinkingEffort',
-  'thinkMaxTokens',
   'writeMaxTokens',
   'contextWindowTokens',
 ] as const;

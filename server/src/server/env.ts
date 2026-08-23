@@ -98,9 +98,6 @@ export function resolveEffectiveSettings(
     if (typeof stored.thinkingEffort === 'string' && stored.thinkingEffort.length > 0) {
       merged.thinkingEffort = stored.thinkingEffort;
     }
-    if (typeof stored.thinkMaxTokens === 'number' && Number.isFinite(stored.thinkMaxTokens)) {
-      merged.thinkMaxTokens = Math.trunc(stored.thinkMaxTokens);
-    }
     if (typeof stored.writeMaxTokens === 'number' && Number.isFinite(stored.writeMaxTokens)) {
       merged.writeMaxTokens = Math.trunc(stored.writeMaxTokens);
     }

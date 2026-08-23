@@ -34,7 +34,6 @@ interface FormStrings {
   writeModel: string;
   language: string;
   thinkingEffort: string;
-  thinkMaxTokens: string;
   writeMaxTokens: string;
   contextWindowTokens: string;
 }
@@ -50,7 +49,6 @@ function seedForm(s: PublicSettingsView): FormStrings {
     writeModel: s.writeModel.model,
     language: s.language,
     thinkingEffort: s.thinkingEffort,
-    thinkMaxTokens: String(s.thinkMaxTokens),
     writeMaxTokens: String(s.writeMaxTokens),
     contextWindowTokens: String(s.contextWindowTokens),
   };
@@ -162,17 +160,15 @@ export function SettingsPage(): ReactNode {
   };
 
   interface FieldErrors {
-    thinkMaxTokens: boolean;
     writeMaxTokens: boolean;
     contextWindowTokens: boolean;
   }
 
   const errors = useMemo<FieldErrors>(() => {
     if (form === null) {
-      return { thinkMaxTokens: false, writeMaxTokens: false, contextWindowTokens: false };
+      return { writeMaxTokens: false, contextWindowTokens: false };
     }
     return {
-      thinkMaxTokens: parseTokenField(form.thinkMaxTokens) === null,
       writeMaxTokens: parseTokenField(form.writeMaxTokens) === null,
       contextWindowTokens: parseTokenField(form.contextWindowTokens) === null,
     };
@@ -199,8 +195,7 @@ export function SettingsPage(): ReactNode {
     );
   }
 
-  const invalid =
-    errors.thinkMaxTokens || errors.writeMaxTokens || errors.contextWindowTokens;
+  const invalid = errors.writeMaxTokens || errors.contextWindowTokens;
 
   const save = async (): Promise<void> => {
     if (invalid || saving) return;
@@ -216,7 +211,6 @@ export function SettingsPage(): ReactNode {
         writeModel: { provider: form.writeProvider, model: form.writeModel.trim() },
         language: form.language.trim(),
         thinkingEffort: form.thinkingEffort,
-        thinkMaxTokens: parseTokenField(form.thinkMaxTokens) as number,
         writeMaxTokens: parseTokenField(form.writeMaxTokens) as number,
         contextWindowTokens: parseTokenField(form.contextWindowTokens) as number,
       };
@@ -367,16 +361,7 @@ export function SettingsPage(): ReactNode {
       {/* Generation */}
       <section className="pt-8">
         <SectionLabel>Generation</SectionLabel>
-        <div className="mt-3 grid grid-cols-3 gap-3">
-          <label className="block">
-            <span className="mb-1.5 block text-xs text-text-mid">Think max tokens</span>
-            <TokenField
-              label="Think max tokens"
-              value={form.thinkMaxTokens}
-              onChange={(v) => set({ thinkMaxTokens: v })}
-              error={errors.thinkMaxTokens}
-            />
-          </label>
+        <div className="mt-3 grid grid-cols-2 gap-3">
           <label className="block">
             <span className="mb-1.5 block text-xs text-text-mid">Write max tokens</span>
             <TokenField

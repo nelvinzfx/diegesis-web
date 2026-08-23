@@ -48,7 +48,6 @@ const settings: AppSettings = {
   writeModel: { provider: 'openai', model: 'm' },
   language: 'Bahasa Indonesia',
   thinkingEffort: 'medium',
-  thinkMaxTokens: 4096,
   writeMaxTokens: 8192,
   contextWindowTokens: 32768,
 };

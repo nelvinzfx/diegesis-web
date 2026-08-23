@@ -26,9 +26,29 @@ export class SettingsService {
   /** Merges a patch over the STORED overlay (not the effective view). */
   async update(patch: Partial<AppSettings>): Promise<AppSettings> {
     const current = (await this.storage.load()) ?? {};
-    await this.storage.save({ ...current, ...stripEmptyKeys(patch) });
+    await this.storage.save({ ...stripUnknownKeys(current), ...stripEmptyKeys(patch) });
     return this.get();
   }
+}
+
+/** Drops legacy/unknown keys (e.g. the removed thinkMaxTokens) on save. */
+function stripUnknownKeys(stored: Record<string, unknown>): Partial<AppSettings> {
+  const known: Array<keyof AppSettings> = [
+    'thinkModel',
+    'writeModel',
+    'openaiBaseUrl',
+    'openaiApiKey',
+    'anthropicApiKey',
+    'language',
+    'thinkingEffort',
+    'writeMaxTokens',
+    'contextWindowTokens',
+  ];
+  const out: Record<string, unknown> = {};
+  for (const key of known) {
+    if (stored[key] !== undefined) out[key] = stored[key];
+  }
+  return out as Partial<AppSettings>;
 }
 
 /** Empty-string key fields mean "unchanged", never "erase". */

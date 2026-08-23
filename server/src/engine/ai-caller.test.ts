@@ -196,18 +196,18 @@ describe('thinkRequestExtras (temperature drop rule)', () => {
   it('drops temperature on anthropic when thinking is attached', async () => {
     const { thinkRequestExtras } = await import('./ai-caller.js');
     const extras = thinkRequestExtras(
-      { thinkingEffort: 'xhigh', thinkMaxTokens: 8192 },
+      { thinkingEffort: 'xhigh' },
       'anthropic',
       0.3,
     );
     expect(extras.temperature).toBeNull();
-    expect(extras.customBody).toEqual([{ key: 'thinking', value: { type: 'enabled', budget_tokens: 7168 } }]);
+    expect(extras.customBody).toEqual([{ key: 'thinking', value: { type: 'enabled', budget_tokens: 32768 } }]);
   });
 
   it('keeps temperature on openai-compat and attaches reasoning_effort', async () => {
     const { thinkRequestExtras } = await import('./ai-caller.js');
     const extras = thinkRequestExtras(
-      { thinkingEffort: 'high', thinkMaxTokens: 4096 },
+      { thinkingEffort: 'high' },
       'openai-compat',
       0.3,
     );

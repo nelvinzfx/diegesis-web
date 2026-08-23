@@ -84,7 +84,6 @@ export interface SettingsFormState {
   writeModel: StageModelSelection;
   language: string;
   thinkingEffort: string;
-  thinkMaxTokens: number;
   writeMaxTokens: number;
   contextWindowTokens: number;
 }
@@ -98,7 +97,6 @@ export function buildSettingsPayload(form: SettingsFormState): Record<string, un
     writeModel: form.writeModel,
     language: form.language,
     thinkingEffort: form.thinkingEffort,
-    thinkMaxTokens: form.thinkMaxTokens,
     writeMaxTokens: form.writeMaxTokens,
     contextWindowTokens: form.contextWindowTokens,
   };
