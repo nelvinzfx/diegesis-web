@@ -6,7 +6,7 @@
 
 import { useEffect, useState, type ReactNode } from 'react';
 
-import { PanelLeft, PanelRight, X } from 'lucide-react';
+import { MapPin, PanelLeft, PanelRight, X } from 'lucide-react';
 
 import { cn } from './lib/cn';
 import { useMediaQuery } from './lib/useMediaQuery';
@@ -19,7 +19,7 @@ import { ActiveCampaignProvider, useActiveCampaign } from './state/ActiveCampaig
 const RAIL_COLLAPSED_KEY = 'diegesis.railCollapsed';
 
 function Shell(): ReactNode {
-  const { view, streaming } = useActiveCampaign();
+  const { view, streaming, campaign } = useActiveCampaign();
   const wide = useMediaQuery('(min-width: 1280px)');
   const md = useMediaQuery('(min-width: 768px)');
   const [railOverlayOpen, setRailOverlayOpen] = useState(false);
@@ -48,32 +48,40 @@ function Shell(): ReactNode {
 
       {/* Center column */}
       <main className="relative flex min-w-0 flex-1 flex-col">
-        {/* Floating controls (top-right of the stage area) */}
-        <div className="absolute right-3 top-3 z-20 flex items-center gap-1">
-          {!md && (
-            <button
-              type="button"
-              aria-label="Expand sidebar"
-              onClick={() => setRailOverlayOpen(true)}
-              className="flex h-7 w-7 items-center justify-center rounded-md text-text-low transition-colors hover:bg-surface-2 hover:text-text-mid"
-            >
-              <PanelLeft size={15} />
-            </button>
-          )}
-          {!wide && (
-            <button
-              type="button"
-              aria-label="Toggle inspector"
-              onClick={() => setInspectorOpen((o) => !o)}
-              className={cn(
-                'flex h-7 w-7 items-center justify-center rounded-md transition-colors hover:bg-surface-2',
-                inspectorOpen ? 'bg-surface-2 text-text-hi' : 'text-text-low hover:text-text-mid',
-              )}
-            >
-              <PanelRight size={15} />
-            </button>
-          )}
-        </div>
+        {/* Top bar: scene location left, grouped controls right */}
+        <header className="flex h-12 shrink-0 items-center justify-between gap-3 border-b border-line px-4">
+          <div className="flex min-w-0 items-center gap-2 text-text-low">
+            <MapPin size={13} className="shrink-0" />
+            <span className="truncate text-xs">
+              {campaign?.sceneState.location || campaign?.title || 'Diegesis'}
+            </span>
+          </div>
+          <div className="flex shrink-0 items-center gap-1 rounded-lg border border-line bg-surface-1 p-1">
+            {!md && (
+              <button
+                type="button"
+                aria-label="Expand sidebar"
+                onClick={() => setRailOverlayOpen(true)}
+                className="flex h-7 w-7 items-center justify-center rounded-md text-text-low transition-colors hover:bg-surface-2 hover:text-text-hi"
+              >
+                <PanelLeft size={15} />
+              </button>
+            )}
+            {!wide && (
+              <button
+                type="button"
+                aria-label="Toggle inspector"
+                onClick={() => setInspectorOpen((o) => !o)}
+                className={cn(
+                  'flex h-7 w-7 items-center justify-center rounded-md transition-colors hover:bg-surface-2 hover:text-hi',
+                  inspectorOpen ? 'bg-surface-2 text-text-hi' : 'text-text-low',
+                )}
+              >
+                <PanelRight size={15} />
+              </button>
+            )}
+          </div>
+        </header>
 
         {view === 'story' ? <StoryScreen /> : (
           <PlaceholderPage view={view} />
