@@ -129,10 +129,77 @@ export function RailNav({
               type="button"
               onClick={() => setSwitcherOpen((o) => !o)}
               aria-label="Switch campaign"
-              className="flex h-8 w-8 items-center justify-center rounded-lg text-text-low transition-colors hover:bg-surface-1 hover:text-text-mid"
+              aria-expanded={switcherOpen}
+              className={cn(
+                'flex h-8 w-8 items-center justify-center rounded-lg transition-colors hover:bg-surface-1',
+                switcherOpen ? 'bg-surface-1 text-text-hi' : 'text-text-low hover:text-text-mid',
+              )}
             >
               <span className="font-mono text-xs">{campaigns.length}</span>
             </button>
+            {switcherOpen && (
+              <>
+                <button
+                  type="button"
+                  aria-label="Close campaign switcher"
+                  onClick={() => setSwitcherOpen(false)}
+                  className="fixed inset-0 z-40 cursor-default"
+                />
+                <div className="fixed bottom-16 left-16 z-50 w-56 overflow-hidden rounded-xl border border-line bg-surface-1 p-1.5">
+                  <ul className="max-h-60 overflow-y-auto">
+                    <li>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSwitcherOpen(false);
+                          setView('campaign-new');
+                        }}
+                        className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs text-text-low transition-colors hover:bg-surface-2 hover:text-text-hi"
+                      >
+                        <Plus size={13} strokeWidth={1.75} />
+                        New campaign
+                      </button>
+                    </li>
+                    {campaigns.map((c) => {
+                      const active = c.id === campaign?.id;
+                      return (
+                        <li key={c.id} className="group flex items-center">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSwitcherOpen(false);
+                              switchCampaign(c.id);
+                            }}
+                            className={cn(
+                              'min-w-0 flex-1 truncate rounded-lg px-2.5 py-1.5 text-left text-xs transition-colors',
+                              active
+                                ? 'bg-surface-2 text-text-hi shadow-[inset_2px_0_0_0] shadow-line-strong'
+                                : 'text-text-mid hover:bg-surface-2 hover:text-text-hi',
+                            )}
+                          >
+                            {c.title || 'Untitled'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSwitcherOpen(false);
+                              setView('campaign-edit', { campaignId: c.id });
+                            }}
+                            aria-label={`Edit ${c.title || 'Untitled'}`}
+                            className="ml-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg text-text-low transition-colors hover:bg-surface-3 hover:text-text-hi"
+                          >
+                            <PencilLine size={12} strokeWidth={1.75} />
+                          </button>
+                        </li>
+                      );
+                    })}
+                    {campaigns.length === 0 && (
+                      <li className="px-2.5 py-1.5 text-xs text-text-low">None yet</li>
+                    )}
+                  </ul>
+                </div>
+              </>
+            )}
           </div>
         ) : (
           <>
