@@ -5,7 +5,7 @@
 
 import { useState, type ReactNode } from 'react';
 
-import { BookOpen, Brain, ChevronsLeft, Settings, Users } from 'lucide-react';
+import { BookOpen, Brain, ChevronsLeft, PencilLine, Plus, Settings, Users } from 'lucide-react';
 
 import { cn } from '../lib/cn';
 import type { ViewId } from '../state/ActiveCampaignContext';
@@ -114,14 +114,25 @@ export function RailNav({
       {/* Campaign switcher */}
       <div className={cn('border-t border-line p-2', collapsed && 'px-1.5')}>
         {collapsed ? (
-          <button
-            type="button"
-            onClick={() => setSwitcherOpen((o) => !o)}
-            aria-label="Switch campaign"
-            className="mx-auto flex h-8 w-8 items-center justify-center rounded-md text-text-low transition-colors hover:bg-surface-1 hover:text-text-mid"
-          >
-            <span className="font-mono text-xs">{campaigns.length}</span>
-          </button>
+          <div className="flex flex-col items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setView('campaign-new')}
+              aria-label="New campaign"
+              title="New campaign"
+              className="flex h-8 w-8 items-center justify-center rounded-md text-text-low transition-colors hover:bg-surface-1 hover:text-text-mid"
+            >
+              <Plus size={15} strokeWidth={1.75} />
+            </button>
+            <button
+              type="button"
+              onClick={() => setSwitcherOpen((o) => !o)}
+              aria-label="Switch campaign"
+              className="flex h-8 w-8 items-center justify-center rounded-md text-text-low transition-colors hover:bg-surface-1 hover:text-text-mid"
+            >
+              <span className="font-mono text-xs">{campaigns.length}</span>
+            </button>
+          </div>
         ) : (
           <>
             <button
@@ -134,21 +145,40 @@ export function RailNav({
             </button>
             {switcherOpen && (
               <ul className="mt-1 max-h-48 overflow-y-auto">
+                <li>
+                  <button
+                    type="button"
+                    onClick={() => setView('campaign-new')}
+                    className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-xs text-text-low transition-colors hover:bg-surface-1 hover:text-text-hi"
+                  >
+                    <Plus size={13} strokeWidth={1.75} />
+                    New
+                  </button>
+                </li>
                 {campaigns.map((c) => {
                   const active = c.id === campaign?.id;
                   return (
-                    <li key={c.id}>
+                    <li key={c.id} className="group flex items-center">
                       <button
                         type="button"
                         onClick={() => switchCampaign(c.id)}
                         className={cn(
-                          'w-full truncate rounded-md px-2.5 py-1.5 text-left text-xs transition-colors',
+                          'min-w-0 flex-1 truncate rounded-md px-2.5 py-1.5 text-left text-xs transition-colors',
                           active
                             ? 'bg-surface-1 text-text-hi shadow-[inset_2px_0_0_0] shadow-line-strong'
                             : 'text-text-mid hover:bg-surface-1 hover:text-text-hi',
                         )}
                       >
                         {c.title || 'Untitled'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setView('campaign-edit', { campaignId: c.id })}
+                        aria-label={`Edit ${c.title || 'Untitled'}`}
+                        title="Edit campaign"
+                        className="ml-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-text-low opacity-0 transition-opacity hover:bg-surface-2 hover:text-text-hi focus-visible:opacity-100 group-hover:opacity-100"
+                      >
+                        <PencilLine size={12} strokeWidth={1.75} />
                       </button>
                     </li>
                   );

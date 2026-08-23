@@ -11,9 +11,12 @@ import { PanelLeft, PanelRight, ScrollText, X } from 'lucide-react';
 import { cn } from './lib/cn';
 import { useMediaQuery } from './lib/useMediaQuery';
 import { InspectorPanel } from './components/InspectorPanel';
-import { PlaceholderPage } from './components/PlaceholderPage';
 import { RailNav } from './components/RailNav';
 import { StoryScreen } from './components/StoryScreen';
+import { CampaignEditPage, CampaignNewPage } from './pages/CampaignPages';
+import { MemoriesPage } from './pages/MemoriesPage';
+import { NpcsPage } from './pages/NpcsPage';
+import { SettingsPage } from './pages/SettingsPage';
 import { ActiveCampaignProvider, useActiveCampaign } from './state/ActiveCampaignContext';
 
 const RAIL_COLLAPSED_KEY = 'diegesis.railCollapsed';
@@ -86,8 +89,18 @@ function Shell(): ReactNode {
           </div>
         </header>
 
-        {view === 'story' ? <StoryScreen /> : (
-          <PlaceholderPage view={view} />
+        {view === 'story' ? (
+          <StoryScreen />
+        ) : (
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            <div className="mx-auto w-full max-w-[720px] px-6 py-8">
+              {view === 'npcs' && <NpcsPage />}
+              {view === 'memories' && <MemoriesPage />}
+              {view === 'settings' && <SettingsPage />}
+              {view === 'campaign-new' && <CampaignNewPage />}
+              {view === 'campaign-edit' && <CampaignEditPage />}
+            </div>
+          </div>
         )}
 
         {/* Inspector as overlay drawer below 1280px */}

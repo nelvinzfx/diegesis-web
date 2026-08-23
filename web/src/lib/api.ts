@@ -8,7 +8,9 @@ import type {
   Campaign,
   MemoryEntry,
   Npc,
+  NpcAgency,
   PublicSettingsView,
+  StageModelSelection,
   Turn,
 } from './types';
 
@@ -26,26 +28,30 @@ export class ApiError extends Error {
   }
 }
 
+/** Shared non-2xx handling: throws ApiError with the server's error code. */
+async function ensureOk(response: Response): Promise<Response> {
+  if (response.ok) return response;
+  let code: string | null = null;
+  let detail = `${response.status} ${response.statusText}`;
+  try {
+    const body = (await response.json()) as { error?: string; message?: string };
+    if (typeof body.error === 'string') {
+      code = body.error;
+      detail = typeof body.message === 'string' ? `${body.error}: ${body.message}` : body.error;
+    }
+  } catch {
+    // non-JSON error body; keep default detail
+  }
+  throw new ApiError(response.status, code, detail);
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${BASE}${path}`, {
     headers:
       init?.body !== undefined ? { 'content-type': 'application/json' } : undefined,
     ...init,
   });
-  if (!response.ok) {
-    let code: string | null = null;
-    let detail = `${response.status} ${response.statusText}`;
-    try {
-      const body = (await response.json()) as { error?: string };
-      if (typeof body.error === 'string') {
-        code = body.error;
-        detail = body.error;
-      }
-    } catch {
-      // non-JSON error body; keep default detail
-    }
-    throw new ApiError(response.status, code, detail);
-  }
+  await ensureOk(response);
   return (await response.json()) as T;
 }
 
@@ -64,7 +70,49 @@ export function updateSettings(
   });
 }
 
+/**
+ * Editable settings form state. Key fields use '' to mean "keep the stored
+ * key": the public GET view never echoes secrets, so an untouched key input
+ * must be OMITTED from the PUT payload (the server also treats empty-string
+ * keys as "unchanged", but omitting is the honest shape).
+ */
+export interface SettingsFormState {
+  openaiBaseUrl: string;
+  openaiApiKey: string;
+  anthropicApiKey: string;
+  thinkModel: StageModelSelection;
+  writeModel: StageModelSelection;
+  language: string;
+  thinkingEffort: string;
+  thinkMaxTokens: number;
+  writeMaxTokens: number;
+  contextWindowTokens: number;
+}
+
+export function buildSettingsPayload(form: SettingsFormState): Record<string, unknown> {
+  return {
+    openaiBaseUrl: form.openaiBaseUrl,
+    ...(form.openaiApiKey.length > 0 ? { openaiApiKey: form.openaiApiKey } : {}),
+    ...(form.anthropicApiKey.length > 0 ? { anthropicApiKey: form.anthropicApiKey } : {}),
+    thinkModel: form.thinkModel,
+    writeModel: form.writeModel,
+    language: form.language,
+    thinkingEffort: form.thinkingEffort,
+    thinkMaxTokens: form.thinkMaxTokens,
+    writeMaxTokens: form.writeMaxTokens,
+    contextWindowTokens: form.contextWindowTokens,
+  };
+}
+
 // ---- Campaigns --------------------------------------------------------------
+
+export interface CampaignInput {
+  title?: string;
+  premise?: string;
+  sessionPlan?: string;
+  playerPersona?: string;
+  sceneState?: { location: string; presentNpcIds: string[] };
+}
 
 export function listCampaigns(): Promise<Campaign[]> {
   return request<{ campaigns: Campaign[] }>('/campaigns').then((r) => r.campaigns);
@@ -72,6 +120,27 @@ export function listCampaigns(): Promise<Campaign[]> {
 
 export function getCampaign(id: string): Promise<Campaign> {
   return request<Campaign>(`/campaigns/${encodeURIComponent(id)}`);
+}
+
+export function createCampaign(input: CampaignInput): Promise<Campaign> {
+  return request<Campaign>('/campaigns', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+/** PUT preserves untouched fields (turns, memories, id, createdAt). */
+export function updateCampaign(id: string, patch: CampaignInput): Promise<Campaign> {
+  return request<Campaign>(`/campaigns/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    body: JSON.stringify(patch),
+  });
+}
+
+export function deleteCampaign(id: string): Promise<void> {
+  return request<{ ok: boolean }>(`/campaigns/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+  }).then(() => undefined);
 }
 
 export function switchToCampaign(id: string): Promise<Campaign> {
@@ -137,7 +206,7 @@ export async function streamTurn(
   return { ...result, turn: terminalTurn };
 }
 
-/** Session-plan generation stream (used by phase 4 planning UI). */
+/** Session-plan generation stream (campaign-new / campaign-edit planning UI). */
 export async function streamPlan(
   campaignId: string,
   input: { title?: string; premise?: string; playerPersona?: string },
@@ -170,15 +239,56 @@ export function listNpcs(campaignId: string): Promise<Npc[]> {
   ).then((r) => r.npcs);
 }
 
-/**
- * Import an NPC from a PNG card (base64 data URL in the `png` JSON field).
- * Exposed for the phase 4 NPC manager.
- */
-export function importNpcPng(campaignId: string, pngDataUrl: string): Promise<Npc> {
+export interface NpcInput {
+  name?: string;
+  description?: string;
+  personality?: string;
+  voiceExamples?: string[];
+  agency?: Partial<NpcAgency>;
+  trackers?: Record<string, number>;
+}
+
+export function createNpc(campaignId: string, input: NpcInput): Promise<Npc> {
+  return request<Npc>(`/campaigns/${encodeURIComponent(campaignId)}/npcs`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export function updateNpc(campaignId: string, npcId: string, input: NpcInput): Promise<Npc> {
+  return request<Npc>(
+    `/campaigns/${encodeURIComponent(campaignId)}/npcs/${encodeURIComponent(npcId)}`,
+    { method: 'PUT', body: JSON.stringify(input) },
+  );
+}
+
+export function deleteNpc(campaignId: string, npcId: string): Promise<void> {
+  return request<{ ok: boolean }>(
+    `/campaigns/${encodeURIComponent(campaignId)}/npcs/${encodeURIComponent(npcId)}`,
+    { method: 'DELETE' },
+  ).then(() => undefined);
+}
+
+/** Import from a character-card JSON string (card v2 / v3). */
+export function importNpcJson(campaignId: string, json: string): Promise<Npc> {
   return request<Npc>(`/campaigns/${encodeURIComponent(campaignId)}/npcs/import`, {
     method: 'POST',
-    body: JSON.stringify({ png: pngDataUrl }),
+    body: JSON.stringify({ json }),
   });
+}
+
+/** Import from raw PNG bytes carrying an embedded `chara` tEXt chunk. */
+export async function importNpcPngBytes(campaignId: string, bytes: Uint8Array): Promise<Npc> {
+  const response = await fetch(
+    `${BASE}/campaigns/${encodeURIComponent(campaignId)}/npcs/import`,
+    {
+      method: 'POST',
+      headers: { 'content-type': 'image/png' },
+      body: bytes as unknown as BodyInit,
+    },
+  );
+  await ensureOk(response);
+  return (await response.json()) as Npc;
 }
 
 // ---- Memories ---------------------------------------------------------------
@@ -187,4 +297,19 @@ export function listMemories(campaignId: string): Promise<MemoryEntry[]> {
   return request<{ memories: MemoryEntry[] }>(
     `/campaigns/${encodeURIComponent(campaignId)}/memories`,
   ).then((r) => r.memories);
+}
+
+/** Entries have no stable id; the server addresses them by line index. */
+export function deleteMemoryAt(campaignId: string, memoryId: number): Promise<void> {
+  return request<{ ok: boolean }>(
+    `/campaigns/${encodeURIComponent(campaignId)}/memories/${memoryId}`,
+    { method: 'DELETE' },
+  ).then(() => undefined);
+}
+
+export function clearMemories(campaignId: string): Promise<void> {
+  return request<{ ok: boolean }>(
+    `/campaigns/${encodeURIComponent(campaignId)}/memories`,
+    { method: 'DELETE' },
+  ).then(() => undefined);
 }

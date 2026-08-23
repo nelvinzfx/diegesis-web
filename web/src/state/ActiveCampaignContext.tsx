@@ -20,9 +20,21 @@ import {
 } from 'react';
 
 import * as api from '../lib/api';
-import type { Campaign, PublicSettingsView, Turn } from '../lib/types';
+import type {
+  Campaign,
+  MemoryEntry,
+  Npc,
+  PublicSettingsView,
+  Turn,
+} from '../lib/types';
 
-export type ViewId = 'story' | 'npcs' | 'memories' | 'settings';
+export type ViewId =
+  | 'story'
+  | 'npcs'
+  | 'memories'
+  | 'settings'
+  | 'campaign-new'
+  | 'campaign-edit';
 
 export interface StreamState {
   phase: 'sending' | 'streaming';
@@ -36,7 +48,9 @@ export interface StreamState {
 
 interface ActiveCampaignValue {
   view: ViewId;
-  setView: (view: ViewId) => void;
+  setView: (view: ViewId, opts?: { campaignId?: string }) => void;
+  /** Target campaign for the campaign-edit view; may differ from active. */
+  viewCampaignId: string | null;
 
   campaigns: Campaign[];
   campaignsLoading: boolean;
@@ -45,6 +59,18 @@ interface ActiveCampaignValue {
 
   turns: Turn[];
   turnsLoading: boolean;
+
+  /** NPC roster of the active campaign (phase 4 manager). */
+  npcs: Npc[];
+  npcsLoading: boolean;
+  refreshNpcs: () => Promise<void>;
+  /** Resolves presentNpcIds / memory scope ids to display names. */
+  npcNameById: Record<string, string>;
+
+  /** Raw memory log of the active campaign (newest last). */
+  memories: MemoryEntry[];
+  memoriesLoading: boolean;
+  refreshMemories: () => Promise<void>;
 
   selectedTurnIndex: number | null;
   selectTurn: (index: number | null) => void;
@@ -73,6 +99,12 @@ interface ActiveCampaignValue {
 
   settings: PublicSettingsView | null;
   apiKeyMissing: boolean;
+  refreshSettings: () => Promise<void>;
+
+  /** Inserts or replaces a campaign in the local list (after POST / PUT). */
+  upsertCampaignLocal: (campaign: Campaign) => void;
+  /** Drops a campaign locally and re-targets the active one if needed. */
+  forgetCampaign: (id: string) => void;
 }
 
 const ActiveCampaignContext = createContext<ActiveCampaignValue | null>(null);
@@ -108,6 +140,11 @@ export function ActiveCampaignProvider({ children }: { children: ReactNode }) {
   const [streamError, setStreamError] = useState<string | null>(null);
   const [settings, setSettings] = useState<PublicSettingsView | null>(null);
   const [editingTurnIndex, setEditingTurnIndex] = useState<number | null>(null);
+  const [viewCampaignId, setViewCampaignId] = useState<string | null>(null);
+  const [npcs, setNpcs] = useState<Npc[]>([]);
+  const [npcsLoading, setNpcsLoading] = useState(false);
+  const [memories, setMemories] = useState<MemoryEntry[]>([]);
+  const [memoriesLoading, setMemoriesLoading] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   // ---- bootstrap ----------------------------------------------------------
@@ -175,6 +212,80 @@ export function ActiveCampaignProvider({ children }: { children: ReactNode }) {
       // transient network hiccup; keep the current view of turns
     }
   }, [campaignId]);
+
+  // ---- npcs + memories ----------------------------------------------------
+
+  useEffect(() => {
+    if (campaignId === null) {
+      setNpcs([]);
+      return;
+    }
+    let cancelled = false;
+    setNpcsLoading(true);
+    api
+      .listNpcs(campaignId)
+      .then((list) => {
+        if (!cancelled) setNpcs(list);
+      })
+      .catch(() => {
+        if (!cancelled) setNpcs([]);
+      })
+      .finally(() => {
+        if (!cancelled) setNpcsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [campaignId]);
+
+  useEffect(() => {
+    if (campaignId === null) {
+      setMemories([]);
+      return;
+    }
+    let cancelled = false;
+    setMemoriesLoading(true);
+    api
+      .listMemories(campaignId)
+      .then((list) => {
+        if (!cancelled) setMemories(list);
+      })
+      .catch(() => {
+        if (!cancelled) setMemories([]);
+      })
+      .finally(() => {
+        if (!cancelled) setMemoriesLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [campaignId]);
+
+  const refreshNpcs = useCallback(async () => {
+    if (campaignId === null) return;
+    try {
+      setNpcs(await api.listNpcs(campaignId));
+    } catch {
+      // transient network hiccup; keep the current view of npcs
+    }
+  }, [campaignId]);
+
+  const refreshMemories = useCallback(async () => {
+    if (campaignId === null) return;
+    try {
+      setMemories(await api.listMemories(campaignId));
+    } catch {
+      // transient network hiccup; keep the current view of memories
+    }
+  }, [campaignId]);
+
+  const refreshSettings = useCallback(async () => {
+    try {
+      setSettings(await api.getSettings());
+    } catch {
+      // keep the current view of settings on failure
+    }
+  }, []);
 
   // ---- streaming ----------------------------------------------------------
 
@@ -307,6 +418,43 @@ export function ActiveCampaignProvider({ children }: { children: ReactNode }) {
     setCampaignId(id);
   }, []);
 
+  const setViewTargeted = useCallback(
+    (next: ViewId, opts?: { campaignId?: string }) => {
+      setView(next);
+      setViewCampaignId(opts?.campaignId ?? null);
+    },
+    [],
+  );
+
+  const upsertCampaignLocal = useCallback((updated: Campaign) => {
+    setCampaigns((prev) =>
+      prev.some((c) => c.id === updated.id)
+        ? prev.map((c) => (c.id === updated.id ? updated : c))
+        : [...prev, updated],
+    );
+  }, []);
+
+  const forgetCampaign = useCallback((id: string) => {
+    setCampaigns((prev) => {
+      const next = prev.filter((c) => c.id !== id);
+      setCampaignId((current) => {
+        if (current !== id) return current;
+        const fallback = next[0]?.id ?? null;
+        if (fallback !== null) {
+          storeCampaignId(fallback);
+        } else {
+          try {
+            window.localStorage.removeItem(ACTIVE_CAMPAIGN_KEY);
+          } catch {
+            // storage disabled
+          }
+        }
+        return fallback;
+      });
+      return next;
+    });
+  }, []);
+
   const cycleVariant = useCallback((turnIndex: number, delta: number) => {
     setVariantByTurn((prev) => {
       const next = Math.max(0, (prev[turnIndex] ?? 0) + delta);
@@ -318,19 +466,33 @@ export function ActiveCampaignProvider({ children }: { children: ReactNode }) {
     () => campaigns.find((c) => c.id === campaignId) ?? null,
     [campaigns, campaignId],
   );
+
+  const npcNameById = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const npc of npcs) map[npc.id] = npc.name;
+    return map;
+  }, [npcs]);
   const apiKeyMissing =
     settings !== null && !settings.openaiKeySet && !settings.anthropicKeySet;
 
   const value = useMemo<ActiveCampaignValue>(
     () => ({
       view,
-      setView,
+      setView: setViewTargeted,
+      viewCampaignId,
       campaigns,
       campaignsLoading,
       campaign,
       switchCampaign,
       turns,
       turnsLoading,
+      npcs,
+      npcsLoading,
+      refreshNpcs,
+      npcNameById,
+      memories,
+      memoriesLoading,
+      refreshMemories,
       selectedTurnIndex,
       selectTurn: setSelectedTurnIndex,
       variantByTurn,
@@ -347,15 +509,27 @@ export function ActiveCampaignProvider({ children }: { children: ReactNode }) {
       stop,
       settings,
       apiKeyMissing,
+      refreshSettings,
+      upsertCampaignLocal,
+      forgetCampaign,
     }),
     [
       view,
+      setViewTargeted,
+      viewCampaignId,
       campaigns,
       campaignsLoading,
       campaign,
       switchCampaign,
       turns,
       turnsLoading,
+      npcs,
+      npcsLoading,
+      refreshNpcs,
+      npcNameById,
+      memories,
+      memoriesLoading,
+      refreshMemories,
       selectedTurnIndex,
       variantByTurn,
       cycleVariant,
@@ -370,6 +544,9 @@ export function ActiveCampaignProvider({ children }: { children: ReactNode }) {
       stop,
       settings,
       apiKeyMissing,
+      refreshSettings,
+      upsertCampaignLocal,
+      forgetCampaign,
     ],
   );
 

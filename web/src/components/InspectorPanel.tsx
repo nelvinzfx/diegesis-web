@@ -241,22 +241,27 @@ function ThinkingSection({ text }: { text: string }): ReactNode {
 // ---- NPCs -------------------------------------------------------------------
 
 function NpcSection({ presentNpcIds }: { presentNpcIds: string[] }): ReactNode {
-  // NPC names resolve in phase 4 once the NPC store is wired into the client;
-  // until then ids are shown as-is so the data path stays honest.
+  const { npcNameById } = useActiveCampaign();
   return (
     <Section title={`Present NPCs (${presentNpcIds.length})`}>
       {presentNpcIds.length === 0 ? (
         <p className="text-xs text-text-low">None recorded.</p>
       ) : (
         <ul className="space-y-1">
-          {presentNpcIds.map((id) => (
-            <li key={id} className="flex items-center gap-2 text-xs" style={{ color: '#22D3EE' }}>
-              <span className="h-1 w-1 rounded-full bg-current" />
-              <span className="truncate font-mono text-[11px]" title={id}>
-                {id}
-              </span>
-            </li>
-          ))}
+          {presentNpcIds.map((id) => {
+            const name = npcNameById[id];
+            return (
+              <li key={id} className="flex items-center gap-2 text-accent-cyan">
+                <span className="h-1 w-1 shrink-0 rounded-full bg-current" />
+                <span
+                  className="truncate text-[11px]"
+                  title={name ?? id}
+                >
+                  {name !== undefined ? name : id}
+                </span>
+              </li>
+            );
+          })}
         </ul>
       )}
     </Section>
