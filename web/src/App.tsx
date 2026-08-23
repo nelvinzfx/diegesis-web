@@ -22,6 +22,7 @@ function Shell(): ReactNode {
   const { view, streaming } = useActiveCampaign();
   const wide = useMediaQuery('(min-width: 1280px)');
   const md = useMediaQuery('(min-width: 768px)');
+  const [railOverlayOpen, setRailOverlayOpen] = useState(false);
   const [railCollapsedStored, setRailCollapsedStored] = useState<boolean>(() => {
     try {
       return window.localStorage.getItem(RAIL_COLLAPSED_KEY) === '1';
@@ -53,7 +54,7 @@ function Shell(): ReactNode {
             <button
               type="button"
               aria-label="Expand sidebar"
-              onClick={() => setRailCollapsedStored(false)}
+              onClick={() => setRailOverlayOpen(true)}
               className="flex h-7 w-7 items-center justify-center rounded-md text-text-low transition-colors hover:bg-surface-2 hover:text-text-mid"
             >
               <PanelLeft size={15} />
@@ -96,6 +97,24 @@ function Shell(): ReactNode {
           </div>
         )}
       </main>
+
+      {/* Mobile rail overlay drawer (<768px) */}
+      {!md && railOverlayOpen && (
+        <div className="fixed inset-0 z-40">
+          <button
+            type="button"
+            aria-label="Close navigation overlay"
+            onClick={() => setRailOverlayOpen(false)}
+            className="absolute inset-0 bg-black/60"
+          />
+          <aside
+            className="absolute inset-y-0 left-0 flex w-[248px] max-w-[86vw] flex-col border-r border-line bg-bg"
+            onClickCapture={() => setRailOverlayOpen(false)}
+          >
+            <RailNav collapsed={false} onToggleCollapsed={() => setRailOverlayOpen(false)} />
+          </aside>
+        </div>
+      )}
 
       {/* Inspector inline at >=1280px */}
       {wide && (

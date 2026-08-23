@@ -92,7 +92,7 @@ export function InputBar(): ReactNode {
         )}
         <div
           className={cn(
-            'flex items-end gap-2 rounded-lg border border-line bg-surface-1 px-3 py-2 transition-colors focus-within:border-line-strong',
+            'flex min-h-[56px] items-center gap-2 rounded-2xl border border-line bg-surface-1 px-4 py-3 transition-colors focus-within:border-line-strong',
           )}
         >
           <textarea
@@ -112,7 +112,7 @@ export function InputBar(): ReactNode {
               type="button"
               onClick={stop}
               aria-label="Stop generation"
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-accent-red text-black transition-colors hover:bg-accent-red/85"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent-red text-black transition-colors hover:bg-accent-red/85"
             >
               <Square size={14} fill="currentColor" />
             </button>
@@ -122,7 +122,7 @@ export function InputBar(): ReactNode {
               onClick={submit}
               aria-label="Send action"
               disabled={text.trim().length === 0}
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-text-hi text-black transition-colors hover:bg-text-hi/85 disabled:pointer-events-none disabled:bg-surface-3 disabled:text-text-low"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-text-hi text-black transition-colors hover:bg-text-hi/85 disabled:pointer-events-none disabled:bg-surface-3 disabled:text-text-low"
             >
               <CornerDownLeft size={15} strokeWidth={2} />
             </button>
