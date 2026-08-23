@@ -123,7 +123,7 @@ export function TurnBlock({
       )}
 
       {/* Scene prose */}
-      <div className="dg-prose mt-4">
+      <div className="dg-prose mt-4 border-l-2 border-line pl-4">
         {live ? (
           <StreamingProse text={streaming?.prose ?? ''} />
         ) : (
