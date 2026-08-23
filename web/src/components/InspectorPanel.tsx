@@ -552,7 +552,7 @@ function NpcSection({ presentNpcIds }: { presentNpcIds: string[] }): ReactNode {
 
 // ---- LIVE -------------------------------------------------------------------
 
-function StageProgress({ lines }: { lines: string[] }): ReactNode {
+export function StageProgress({ lines }: { lines: string[] }): ReactNode {
   if (lines.length === 0) {
     return (
       <p className="flex items-center gap-2 text-xs text-text-mid">
@@ -581,7 +581,7 @@ function StageProgress({ lines }: { lines: string[] }): ReactNode {
 }
 
 /** Live reasoning stream: monospace, capped height, pauses when scrolled up. */
-function ReasoningStream({ text }: { text: string }): ReactNode {
+export function ReasoningStream({ text }: { text: string }): ReactNode {
   const boxRef = useRef<HTMLPreElement>(null);
   const followingRef = useRef(true);
 

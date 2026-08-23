@@ -4,12 +4,15 @@
  * Web-native layout, deliberately not the Android chat-bubble shape.
  */
 
-import { useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 
 import {
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
+  ChevronUp,
   Copy,
+  Loader2,
   PencilLine,
   RotateCcw,
   Trash2,
@@ -20,6 +23,7 @@ import { formatInline } from '../lib/markdown-lite';
 import type { Turn, TurnVariant } from '../lib/types';
 import { useActiveCampaign } from '../state/ActiveCampaignContext';
 import { IconActionButton } from './common';
+import { ReasoningStream, StageProgress } from './InspectorPanel';
 import { Popover } from '@heroui/react';
 
 export function TurnBlock({
@@ -122,6 +126,8 @@ export function TurnBlock({
         </div>
       )}
 
+      {live && <LivePipeline />}
+
       {/* Scene prose */}
       <div className="dg-prose mt-4 border-l-2 border-line pl-4">
         {live ? (
@@ -170,6 +176,55 @@ function StaticProse({ text, interrupted }: { text: string; interrupted: boolean
         </span>
       )}
     </>
+  );
+}
+
+/**
+ * Live pipeline block inside the streaming turn: the inspector's LIVE view,
+ * inline, so phones see it without opening the panel. Expanded by default
+ * while the model works; collapses to a one-line header once prose starts
+ * flowing (unless the user manually toggled it).
+ */
+function LivePipeline(): ReactNode {
+  const { streaming } = useActiveCampaign();
+  const [expanded, setExpanded] = useState(true);
+  const userToggled = useRef(false);
+  const proseStarted = (streaming?.prose ?? '').length > 0;
+
+  useEffect(() => {
+    if (proseStarted && !userToggled.current) setExpanded(false);
+  }, [proseStarted]);
+
+  const lines = streaming?.stageLines ?? [];
+  const latest = lines[lines.length - 1] ?? 'Starting pipeline...';
+  const reasoning = streaming?.reasoning ?? '';
+
+  return (
+    <div className="mb-3 overflow-hidden rounded-xl border border-line bg-surface-1">
+      <button
+        type="button"
+        onClick={() => {
+          userToggled.current = true;
+          setExpanded((e) => !e);
+        }}
+        aria-expanded={expanded}
+        className="flex w-full items-center gap-2 px-3 py-2 text-left"
+      >
+        <Loader2 size={13} className="shrink-0 animate-spin text-text-mid" />
+        <span className="min-w-0 flex-1 truncate text-xs text-text-mid">{latest}</span>
+        {expanded ? (
+          <ChevronUp size={13} className="shrink-0 text-text-low" />
+        ) : (
+          <ChevronDown size={13} className="shrink-0 text-text-low" />
+        )}
+      </button>
+      {expanded && (
+        <div className="space-y-3 border-t border-line px-3 py-2.5">
+          <StageProgress lines={lines} />
+          {reasoning.length > 0 && <ReasoningStream text={reasoning} />}
+        </div>
+      )}
+    </div>
   );
 }
 
