@@ -27,6 +27,7 @@ import { registerCampaignRoutes } from './routes/campaigns.js';
 import { registerNpcRoutes } from './routes/npcs.js';
 import { registerMemoryRoutes } from './routes/memories.js';
 import { registerTurnRoutes } from './routes/turns.js';
+import { registerTrackerRoutes } from './routes/trackers.js';
 import { registerPlanRoute } from './routes/plan.js';
 import { registerOpeningRoutes } from './routes/opening.js';
 import { registerPromptRoutes } from './routes/prompts.js';
@@ -80,11 +81,16 @@ export function createApp(options: CreateAppOptions = {}): express.Express {
     effectiveSettings: () => settingsService.get(),
     aiCaller: async () => baseCaller,
     createOrchestrator: async (caller, orchestratorOptions) => {
-      const overrides = await hub.prompts.load();
+      const [overrides, effective] = await Promise.all([
+        hub.prompts.load(),
+        settingsService.get(),
+      ]);
       return new PipelineOrchestrator({
         aiCaller: caller,
         stores: hub.stores,
         getTemplates: getterFromOverrides(overrides),
+        // Story language for the reader-facing status board stage.
+        language: effective.language,
         ...orchestratorOptions,
       });
     },
@@ -106,6 +112,7 @@ export function createApp(options: CreateAppOptions = {}): express.Express {
   registerNpcRoutes(api, ctx);
   registerMemoryRoutes(api, ctx);
   registerTurnRoutes(api, ctx);
+  registerTrackerRoutes(api, ctx);
   registerPlanRoute(api, ctx);
   registerOpeningRoutes(api, ctx);
   registerPromptRoutes(api, ctx);

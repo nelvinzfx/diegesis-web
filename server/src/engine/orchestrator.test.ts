@@ -27,7 +27,7 @@ function seededRandom(seed: number): RandomSource {
 
 // ---- scripted AiCaller ------------------------------------------------------
 
-type StageName = 'router' | 'plot' | 'agency' | 'extraction' | 'unknown';
+type StageName = 'router' | 'plot' | 'agency' | 'extraction' | 'tracker' | 'unknown';
 
 class FakeAiCaller implements AiCaller {
   structuredCalls: StageName[] = [];
@@ -43,6 +43,8 @@ class FakeAiCaller implements AiCaller {
     public extractionJson = '[]',
     public proseChunks: string[] = ['Once ', 'upon ', 'a time.'],
     public proseThrows = false,
+    public trackerJson =
+      '{"dateTime":"Day 1, evening","location":"The Docks","atmosphere":"Cold air.","player":{"look":"jacket","condition":"tired","carrying":"lamp"},"npcs":{"alice":{"look":"cloak","condition":"calm","carrying":"-","innerVoice":"\\"He suspects.\\""}}}',
   ) {}
 
   async generateStructured<T>(
@@ -56,6 +58,7 @@ class FakeAiCaller implements AiCaller {
     else if (/plot engine/i.test(systemPrompt)) stage = 'plot';
     else if (/inner life/i.test(systemPrompt)) stage = 'agency';
     else if (/Extract durable facts/i.test(systemPrompt)) stage = 'extraction';
+    else if (/status board/i.test(systemPrompt)) stage = 'tracker';
     else stage = 'unknown';
     this.structuredCalls.push(stage);
 
@@ -68,7 +71,9 @@ class FakeAiCaller implements AiCaller {
             ? this.agencyJson
             : stage === 'extraction'
               ? this.extractionJson
-              : null;
+              : stage === 'tracker'
+                ? this.trackerJson
+                : null;
     if (payload === null) return fallback;
     // Mirror the real caller's contract: never throw, fall back instead.
     try {
@@ -157,6 +162,7 @@ function baseCampaign(): Campaign {
     playerPersona: '',
     openingMessage: '',
     sceneState: { location: 'The Docks', presentNpcIds: ['alice'] },
+    trackerState: null,
     thinkModel: null,
     writeModel: null,
     createdAt: 1000,
@@ -191,6 +197,7 @@ type FakeOverrides = {
   extractionJson?: string;
   proseChunks?: string[];
   proseThrows?: boolean;
+  trackerJson?: string;
 };
 
 function rig(
@@ -204,6 +211,7 @@ function rig(
     (fakeOverrides['extractionJson'] as string | undefined),
     (fakeOverrides['proseChunks'] as string[] | undefined),
     (fakeOverrides['proseThrows'] as boolean | undefined),
+    (fakeOverrides['trackerJson'] as string | undefined),
   );
   const stores = memoryStores();
   const orch = new PipelineOrchestrator({
@@ -297,8 +305,9 @@ describe('PipelineOrchestrator', () => {
   it('stages run in pipeline order', async () => {
     const { fake, orch } = await seedRig();
     await orch.executeTurn({ campaignId, playerInput: 'look around' });
-    // Agency is conditional and off here; router precedes plot precedes extraction.
-    expect(fake.structuredCalls).toEqual(['router', 'plot', 'extraction']);
+    // Agency is conditional and off here; router precedes plot precedes
+    // extraction precedes the status-board rewrite.
+    expect(fake.structuredCalls).toEqual(['router', 'plot', 'extraction', 'tracker']);
   });
 
   it('turn indices increment across successive turns', async () => {
@@ -559,10 +568,10 @@ describe('PipelineOrchestrator', () => {
     expect(saved.stageEvents.some((e) => e.startsWith('plot: fallback used'))).toBe(true);
   });
 
-  it('a clean turn has an empty stage event list', async () => {
+  it('a clean turn records only the status-board success event', async () => {
     const { orch } = await seedRig();
     const variant = await orch.executeTurn({ campaignId, playerInput: 'look around' });
-    expect(variant.stageEvents).toEqual([]);
+    expect(variant.stageEvents).toEqual(['tracker: updated (Day 1, evening, The Docks, 1 npcs)']);
   });
 
   it('scene failure records an interrupted stage event', async () => {
@@ -665,6 +674,8 @@ describe('PipelineOrchestrator', () => {
       'scene: streaming…',
       'memory: extracting…',
       'memory: done',
+      'tracker: updating…',
+      'tracker: updated (Day 1, evening, The Docks, 1 npcs)',
     ]);
   });
 
@@ -756,5 +767,72 @@ describe('PipelineOrchestrator', () => {
     const { orch } = await seedRig();
     const variant = await orch.executeTurn({ campaignId, playerInput: 'quiet' });
     expect(variant.reasoning).toBeNull();
+  });
+});
+// ---- narrative status board (trackerState) ----------------------------------
+
+describe('PipelineOrchestrator trackerState', () => {
+  it('persists the status board on the campaign after a turn', async () => {
+    const { stores, orch } = await seedRig({
+      plotJson:
+        '{"synopsis":"Alice speaks.","present_npcs":["alice"],"scene_change":false,"location":null,"tracker_updates":[]}',
+    });
+    await orch.executeTurn({ campaignId, playerInput: 'talk to alice' });
+    const campaign = (await stores.loadCampaign(campaignId))!;
+    expect(campaign.trackerState).not.toBeNull();
+    expect(campaign.trackerState!.updatedAtTurn).toBe(0);
+    expect(campaign.trackerState!.dateTime).toBe('Day 1, evening');
+    expect(campaign.trackerState!.player).toEqual({
+      look: 'jacket',
+      condition: 'tired',
+      carrying: 'lamp',
+    });
+    // Only NPCs present in the scene appear on the board.
+    expect(Object.keys(campaign.trackerState!.npcs)).toEqual(['alice']);
+    expect(campaign.trackerState!.npcs['alice']!.innerVoice).toBe('"He suspects."');
+  });
+
+  it('records the success event after earlier pipeline events in order', async () => {
+    // Plot fallback records early; the board event must come after it.
+    const { orch } = await seedRig({ plotJson: 'garbage' });
+    const variant = await orch.executeTurn({ campaignId, playerInput: 'remember' });
+    const plotIdx = variant.stageEvents.findIndex((e) => e.startsWith('plot: fallback used'));
+    const trackerIdx = variant.stageEvents.findIndex((e) => e.startsWith('tracker: updated'));
+    expect(plotIdx).toBeGreaterThanOrEqual(0);
+    expect(trackerIdx).toBeGreaterThan(plotIdx);
+    // Live progress also announced the board stage.
+  });
+
+  it('garbage board JSON keeps the previous state with a failure event', async () => {
+    const { stores, orch } = await seedRig({ trackerJson: 'this is not json at all' });
+    // Seed a previous board.
+    const seeded = (await stores.loadCampaign(campaignId))!;
+    await stores.saveCampaign({
+      ...seeded,
+      trackerState: {
+        dateTime: 'old',
+        location: 'old',
+        atmosphere: 'old',
+        player: null,
+        npcs: {},
+        updatedAtTurn: null,
+      },
+    });
+
+    const variant = await orch.executeTurn({ campaignId, playerInput: 'go on' });
+    expect(variant.stageEvents).toContain('tracker: update failed, keeping previous state');
+    const campaign = (await stores.loadCampaign(campaignId))!;
+    expect(campaign.trackerState!.dateTime).toBe('old');
+  });
+
+  it('regenerate re-runs the status-board update on top of the current state', async () => {
+    const { fake, stores, orch } = await seedRig();
+    await orch.executeTurn({ campaignId, playerInput: 'first pass' });
+    await orch.executeTurn({ campaignId, playerInput: 'regenerate', targetTurnIndex: 0 });
+    const trackerCalls = fake.structuredCalls.filter((s) => s === 'tracker');
+    expect(trackerCalls.length).toBe(2);
+    const campaign = (await stores.loadCampaign(campaignId))!;
+    expect(campaign.trackerState).not.toBeNull();
+    expect(campaign.trackerState!.updatedAtTurn).toBe(0);
   });
 });

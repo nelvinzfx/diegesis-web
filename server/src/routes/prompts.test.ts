@@ -47,7 +47,7 @@ function mkTurn(index: number, playerInput: string, sceneOutput: string, npcIds:
 }
 
 describe('prompt template API', () => {
-  it('lists all seven stage keys with defaults and null overrides', async () => {
+  it('lists all eight stage keys with defaults and null overrides', async () => {
     const h = await fresh();
     const port = await h.listen();
     const base = `http://127.0.0.1:${port}`;
@@ -62,10 +62,24 @@ describe('prompt template API', () => {
       'agency',
       'scene',
       'memory-extraction',
+      'tracker-update',
       'session-plan',
       'title',
       'opening',
     ]);
+
+    // The status-board stage lists exactly its documented template variables.
+    const tracker = stages.find((s) => s.key === 'tracker-update');
+    expect(tracker?.variables).toEqual([
+      'previousTracker',
+      'synopsis',
+      'sceneOutput',
+      'location',
+      'presentNpcs',
+      'playerPersona',
+      'language',
+    ]);
+    expect(tracker?.default).toContain('status board');
 
     // The opening stage lists exactly its documented template variables.
     const opening = stages.find((s) => s.key === 'opening');

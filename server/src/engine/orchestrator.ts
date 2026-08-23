@@ -18,6 +18,7 @@ import type {
   SceneState,
   Turn,
   TurnVariant,
+  TrackerState,
 } from '../shared/types.js';
 import type { AiCaller } from './ai-caller.js';
 import type { PromptTemplateGetter } from './prompt-templates.js';
@@ -30,6 +31,7 @@ import * as PlotStage from './stages/plot.js';
 import * as AgencyStage from './stages/agency.js';
 import { execute as executeScene } from './stages/scene.js';
 import * as MemoryExtractionStage from './stages/memory-extraction.js';
+import * as TrackerUpdateStage from './stages/tracker-update.js';
 
 /** Storage surface the orchestrator needs; phase 2 provides the file-backed impl. */
 export interface OrchestratorStores {
@@ -69,6 +71,8 @@ export interface OrchestratorOptions {
   contextWindowTokens?: number;
   writeMaxTokens?: number;
   makeId?: () => string;
+  /** Story language for reader-facing stages; defaults to 'English'. */
+  language?: string;
   /** Constructor-level progress hook; per-call override supported. */
   onPipelineEvent?: ((line: string) => void) | null;
   /**
@@ -352,10 +356,47 @@ export class PipelineOrchestrator {
           : campaign.sceneState.location,
       presentNpcIds,
     };
+
+    // ---- 9b. Narrative status board (campaign.trackerState) ---------------
+    // Full-state replace via the THINK model; failure keeps the previous
+    // board so the inspector never shows a broken state.
+    emitProgress('tracker: updating…');
+    let trackerState: TrackerState | null = campaign.trackerState ?? null;
     try {
+      const updated = await TrackerUpdateStage.execute(this.options.aiCaller, {
+        previous: campaign.trackerState ?? null,
+        synopsis: plotOutput.synopsis,
+        sceneOutput,
+        location: newSceneState.location,
+        presentNpcs: presentNpcs.map((npc) => ({
+          id: npc.id,
+          name: npc.name,
+          description: npc.description,
+        })),
+        playerPersona: campaign.playerPersona,
+        language: this.options.language ?? 'English',
+        getTemplate: this.templateGetter,
+      });
+      if (updated === null) {
+        recordEvent('tracker: update failed, keeping previous state');
+        trackerState = campaign.trackerState ?? null;
+      } else {
+        trackerState = { ...updated, updatedAtTurn: turnIndex };
+        recordEvent(
+          `tracker: updated (${trackerState.dateTime}, ${trackerState.location}, ` +
+            `${Object.keys(trackerState.npcs).length} npcs)`,
+        );
+      }
+    } catch (t) {
+      recordEvent(`tracker: update failed (${errorMessage(t)})`);
+      trackerState = campaign.trackerState ?? null;
+    }
+    try {
+      // Single merged save so sceneState and the board land atomically.
       await this.stores.saveCampaign({
         ...campaign,
         sceneState: newSceneState,
+        trackerState,
         updatedAt: Date.now(),
       });
     } catch {

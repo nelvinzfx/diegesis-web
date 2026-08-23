@@ -15,6 +15,7 @@ import * as RouterStage from '../engine/stages/router.js';
 import * as PlotStage from '../engine/stages/plot.js';
 import * as AgencyStage from '../engine/stages/agency.js';
 import * as MemoryExtractionStage from '../engine/stages/memory-extraction.js';
+import * as TrackerUpdateStage from '../engine/stages/tracker-update.js';
 import { resolveSystemPrompt as resolveSceneSystemPrompt } from '../engine/stages/scene.js';
 import {
   buildTitleUserPrompt,
@@ -174,6 +175,31 @@ export async function buildStagePreview(
         ),
         meta,
       };
+
+    case 'tracker-update': {
+      const language = input.settings.language?.trim() || 'English';
+      const trackerValues = {
+        previous: campaign.trackerState ?? null,
+        synopsis: SYNOPSIS_PLACEHOLDER,
+        sceneOutput: SCENE_OUTPUT_PLACEHOLDER,
+        location: campaign.sceneState.location,
+        presentNpcs: presentNpcs.map((npc) => ({
+          id: npc.id,
+          name: npc.name,
+          description: npc.description,
+        })),
+        playerPersona: campaign.playerPersona.trim().length > 0
+          ? campaign.playerPersona
+          : '(unspecified)',
+        language,
+      };
+      return {
+        stage: 'tracker-update',
+        system: TrackerUpdateStage.resolveSystemPrompt(getTemplate, trackerValues),
+        user: TrackerUpdateStage.buildUserPrompt(trackerValues),
+        meta,
+      };
+    }
 
     case 'session-plan': {
       const values = {

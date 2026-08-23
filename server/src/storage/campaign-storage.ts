@@ -60,11 +60,19 @@ export class CampaignStorage {
 }
 
 /**
- * Backfills openingMessage ('' default) on campaign files written before the
- * field existed, so callers never see undefined.
+ * Backfills fields on campaign files written before they existed
+ * (openingMessage '' default, trackerState null), so callers never see
+ * undefined. Old campaign JSON loads fine.
  */
 export function normalizeCampaign(campaign: Campaign): Campaign {
-  return typeof campaign.openingMessage === 'string' ? campaign : { ...campaign, openingMessage: '' };
+  const next: Campaign = {
+    ...campaign,
+    openingMessage:
+      typeof campaign.openingMessage === 'string' ? campaign.openingMessage : '',
+    // Old files lack the field entirely; backfill null = never generated.
+    trackerState: campaign.trackerState ?? null,
+  };
+  return next;
 }
 
 async function pathExistsDir(p: string): Promise<boolean> {

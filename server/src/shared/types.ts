@@ -88,6 +88,37 @@ export interface Turn {
   createdAt: number;
 }
 
+// ---- Narrative status board (per-campaign, web-only) ------------------------
+
+/** One character's reader-facing snapshot on the status board. */
+export interface TrackerEntry {
+  look: string;
+  condition: string;
+  carrying: string;
+}
+
+/**
+ * The live status board rewritten by the 'tracker-update' stage after every
+ * turn. npcs is keyed by NPC ID and only ever contains NPCs present in the
+ * latest scene. player is the player persona's entry (display name comes
+ * from the persona; the UI falls back to "You"). null on Campaign = the
+ * board was never generated. NOTE: unrelated to Npc.trackers (numeric
+ * per-NPC stats updated by memory-extraction).
+ */
+export interface TrackerState {
+  dateTime: string;
+  location: string;
+  atmosphere: string;
+  player: TrackerEntry | null;
+  npcs: Record<string, TrackerEntry & { innerVoice?: string }>;
+  /** Turn index that last wrote this board; null for a hand-seeded board. */
+  updatedAtTurn: number | null;
+}
+
+export function emptyTrackerState(): TrackerState {
+  return { dateTime: '', location: '', atmosphere: '', player: null, npcs: {}, updatedAtTurn: null };
+}
+
 // ---- Npc.kt -----------------------------------------------------------------
 
 export interface NpcAgency {
@@ -138,6 +169,8 @@ export interface Campaign {
    */
   openingMessage: string;
   sceneState: SceneState;
+  /** Live narrative status board; null = never generated. */
+  trackerState: TrackerState | null;
   thinkModel: StageModelSelection | null;
   writeModel: StageModelSelection | null;
   createdAt: number;

@@ -9,6 +9,7 @@ import * as PlotStage from '../engine/stages/plot.js';
 import * as AgencyStage from '../engine/stages/agency.js';
 import { DEFAULT_NARRATOR_VOICE } from '../engine/stages/scene.js';
 import * as MemoryExtractionStage from '../engine/stages/memory-extraction.js';
+import * as TrackerUpdateStage from '../engine/stages/tracker-update.js';
 import { DEFAULT_TITLE_SYSTEM } from './title-service.js';
 import { DEFAULT_PLAN_SYSTEM_PROMPT } from '../routes/plan.js';
 import { DEFAULT_OPENING_SYSTEM_PROMPT } from '../routes/opening.js';
@@ -62,6 +63,14 @@ export const PROMPT_STAGES: PromptStageInfo[] = [
       'Pulls durable facts out of a finished turn. Reply is parsed as a JSON array.',
     variables: STAGE_VARIABLES['memory-extraction'],
     default: MemoryExtractionStage.DEFAULT_SYSTEM_PROMPT,
+  },
+  {
+    key: 'tracker-update',
+    label: 'Status board',
+    description:
+      'Rewrites the live status board after each turn: time, place, atmosphere, looks, and NPC inner voices. Reply is parsed as JSON.',
+    variables: STAGE_VARIABLES['tracker-update'],
+    default: TrackerUpdateStage.DEFAULT_SYSTEM_PROMPT,
   },
   {
     key: 'session-plan',

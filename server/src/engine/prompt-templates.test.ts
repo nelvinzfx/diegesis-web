@@ -44,6 +44,7 @@ describe('prompt template interpolation', () => {
       'agency',
       'scene',
       'memory-extraction',
+      'tracker-update',
       'session-plan',
       'title',
       'opening',

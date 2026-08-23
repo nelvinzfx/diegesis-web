@@ -86,6 +86,7 @@ export function registerCampaignRoutes(router: Router, ctx: RouteContext): void 
           playerPersona: '',
           openingMessage: '',
           sceneState: defaultSceneState(),
+          trackerState: null,
           thinkModel: null,
           writeModel: null,
           createdAt: now,

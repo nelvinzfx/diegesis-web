@@ -133,6 +133,8 @@ export function registerTurnRoutes(router: Router, ctx: RouteContext): void {
             } satisfies Turn),
           variant,
           ...(campaignTitle !== undefined ? { campaignTitle } : {}),
+          // Live status board after this turn; null = update failed/never ran.
+          trackerState: storedCampaign?.trackerState ?? null,
         });
       } catch (error) {
         sseSend(res, 'error', {

@@ -7,20 +7,29 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 
 import {
+  Activity,
   Check,
   Club,
   Diamond,
   Heart,
   Loader2,
+  PencilLine,
   Spade,
 } from 'lucide-react';
 
 import type { LucideIcon } from 'lucide-react';
 
+import * as api from '../lib/api';
 import { cn } from '../lib/cn';
-import type { MechanicResult, RouterDecision, TurnVariant } from '../lib/types';
+import type {
+  MechanicResult,
+  RouterDecision,
+  TrackerEntry,
+  TrackerState,
+  TurnVariant,
+} from '../lib/types';
 import { useActiveCampaign } from '../state/ActiveCampaignContext';
-import { SectionLabel } from './common';
+import { IconActionButton, PrimaryButton, SecondaryButton, SectionLabel, TextArea } from './common';
 
 const SUIT_ICONS: Record<string, LucideIcon> = {
   spades: Spade,
@@ -37,6 +46,7 @@ export function InspectorPanel(): ReactNode {
   if (streaming !== null) {
     return (
       <div className="flex h-full flex-col gap-5 overflow-y-auto p-4">
+        <StatusSection />
         <SectionLabel>Pipeline · live</SectionLabel>
         {streamError !== null && <ErrorBanner message={streamError} onDismiss={dismissStreamError} />}
         <StageProgress lines={streaming.stageLines} />
@@ -84,6 +94,7 @@ function IdleInspector(): ReactNode {
 
   return (
     <div className="flex h-full flex-col gap-5 overflow-y-auto p-4 pb-8">
+      <StatusSection />
       <SectionLabel>
         Turn {turn.index} · variant {Math.min(variantByTurn[turn.index] ?? 0, Math.max(0, turn.variants.length - 1)) + 1}
       </SectionLabel>
@@ -142,6 +153,277 @@ function Section({ title, children }: { title: string; children: ReactNode }): R
       <SectionLabel>{title}</SectionLabel>
       <div className="mt-2">{children}</div>
     </section>
+  );
+}
+
+// ---- status board -----------------------------------------------------------
+
+/** Live narrative status board; shown in BOTH idle and live inspector modes. */
+function StatusSection(): ReactNode {
+  const { campaign, streaming, npcNameById, refreshTracker } = useActiveCampaign();
+  const [editing, setEditing] = useState(false);
+  const trackerState = campaign?.trackerState ?? null;
+  // Subtle live note only once the pipeline actually reached the tracker stage.
+  const trackerUpdating =
+    streaming !== null && streaming.stageLines.some((line) => line.startsWith('tracker:'));
+
+  return (
+    <section>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-text-low">
+          <Activity size={12} strokeWidth={1.75} />
+          Status
+        </div>
+        {trackerState !== null && !editing && (
+          <IconActionButton
+            icon={PencilLine}
+            label="Edit status board"
+            onPress={() => setEditing(true)}
+          />
+        )}
+      </div>
+
+      {editing && trackerState !== null ? (
+        <StatusEditor
+          board={trackerState}
+          onCancel={() => setEditing(false)}
+          onSaved={() => {
+            setEditing(false);
+            void refreshTracker();
+          }}
+        />
+      ) : trackerState === null ? (
+        <p className="mt-2 flex items-center gap-2 text-xs text-text-low">
+          <Activity size={13} className="shrink-0" />
+          Status appears after the first turn.
+        </p>
+      ) : (
+        <StatusBoard
+          board={trackerState}
+          npcNameById={npcNameById}
+          playerPersona={campaign?.playerPersona ?? ''}
+          updating={trackerUpdating}
+        />
+      )}
+    </section>
+  );
+}
+
+const TRACKER_HEADER_ROWS: Array<[keyof Pick<TrackerState, 'dateTime' | 'location' | 'atmosphere'>, string]> = [
+  ['dateTime', 'Date & Time'],
+  ['location', 'Location'],
+  ['atmosphere', 'Atmosphere'],
+];
+
+function TrackerField({ label, value }: { label: string; value: string }): ReactNode {
+  return (
+    <p className="text-xs leading-relaxed">
+      <span className="font-mono text-[11px] uppercase tracking-[0.08em] text-text-low">{label}: </span>
+      <span className="text-text-mid">{value}</span>
+    </p>
+  );
+}
+
+function TrackerEntryRows({ entry }: { entry: TrackerEntry & { innerVoice?: string } }): ReactNode {
+  return (
+    <div className="mt-0.5 space-y-0.5">
+      <TrackerField label="Look" value={entry.look} />
+      <TrackerField label="Condition" value={entry.condition} />
+      <TrackerField label="Carrying" value={entry.carrying} />
+    </div>
+  );
+}
+
+function StatusBoard({
+  board,
+  npcNameById,
+  playerPersona,
+  updating,
+}: {
+  board: TrackerState;
+  npcNameById: Record<string, string>;
+  playerPersona: string;
+  updating: boolean;
+}): ReactNode {
+  const playerName = (() => {
+    const first = playerPersona.trim().split(/\s+/)[0];
+    return first !== undefined && first.length > 0 ? first : 'You';
+  })();
+  const npcEntries = Object.entries(board.npcs);
+  const innerVoices = npcEntries.filter(([, entry]) => {
+    const voice = entry.innerVoice;
+    return typeof voice === 'string' && voice.trim().length > 0;
+  });
+
+  return (
+    <div className="mt-2">
+      {updating && (
+        <p className="mb-2 font-mono text-[10px] uppercase tracking-[0.14em] text-text-low">
+          Updating...
+        </p>
+      )}
+
+      <div className="space-y-0.5">
+        {TRACKER_HEADER_ROWS.map(([key, label]) => (
+          <TrackerField key={key} label={label} value={board[key]} />
+        ))}
+      </div>
+
+      {board.player !== null && (
+        <div className="mt-3 border-l-2 border-accent-amber pl-3">
+          <p className="text-xs text-text-hi">{playerName}</p>
+          <TrackerEntryRows entry={board.player} />
+        </div>
+      )}
+
+      {npcEntries.map(([id, entry]) => (
+        <div key={id} className="mt-3">
+          <p className="truncate text-xs text-accent-cyan" title={npcNameById[id] ?? id}>
+            {npcNameById[id] !== undefined ? npcNameById[id] : id}
+          </p>
+          <TrackerEntryRows entry={entry} />
+        </div>
+      ))}
+
+      {innerVoices.length > 0 && (
+        <div className="mt-3">
+          <p className="font-mono text-[11px] uppercase tracking-[0.08em] text-text-low">
+            Inner Voices
+          </p>
+          <div className="mt-1 space-y-0.5">
+            {innerVoices.map(([id, entry]) => (
+              <p key={id} className="text-xs italic leading-relaxed text-text-mid">
+                <span className="not-italic text-accent-cyan">
+                  {npcNameById[id] !== undefined ? npcNameById[id] : id}:
+                </span>{' '}
+                {entry.innerVoice}
+              </p>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function EditorField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (next: string) => void;
+}): ReactNode {
+  return (
+    <label className="block">
+      <span className="font-mono text-[11px] uppercase tracking-[0.08em] text-text-low">{label}</span>
+      <TextArea
+        rows={1}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="mt-0.5"
+      />
+    </label>
+  );
+}
+
+function StatusEditor({
+  board,
+  onCancel,
+  onSaved,
+}: {
+  board: TrackerState;
+  onCancel: () => void;
+  onSaved: () => void;
+}): ReactNode {
+  const { campaign } = useActiveCampaign();
+  const [draft, setDraft] = useState<TrackerState>(
+    () => JSON.parse(JSON.stringify(board)) as TrackerState,
+  );
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const update = (mutate: (draft: TrackerState) => void): void => {
+    setDraft((prev) => {
+      const next = JSON.parse(JSON.stringify(prev)) as TrackerState;
+      mutate(next);
+      return next;
+    });
+  };
+
+  const save = async (): Promise<void> => {
+    if (campaign === null || saving) return;
+    setSaving(true);
+    setError(null);
+    try {
+      await api.updateTracker(campaign.id, draft);
+      onSaved();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="mt-2 space-y-3">
+      {error !== null && <ErrorBanner message={error} />}
+      {TRACKER_HEADER_ROWS.map(([key, label]) => (
+        <EditorField
+          key={key}
+          label={label}
+          value={draft[key]}
+          onChange={(next) => update((d) => (d[key] = next))}
+        />
+      ))}
+
+      {draft.player !== null && (
+        <div className="border-l-2 border-accent-amber pl-3">
+          <p className="mb-1 text-xs text-text-hi">Player</p>
+          <div className="space-y-2">
+            {(['look', 'condition', 'carrying'] as const).map((field) => (
+              <EditorField
+                key={field}
+                label={field}
+                value={draft.player![field]}
+                onChange={(next) => update((d) => (d.player !== null ? (d.player[field] = next) : undefined))}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {Object.keys(draft.npcs).map((id) => (
+        <div key={id}>
+          <p className="mb-1 text-xs text-accent-cyan">{id}</p>
+          <div className="space-y-2">
+            {(['look', 'condition', 'carrying'] as const).map((field) => (
+              <EditorField
+                key={field}
+                label={field}
+                value={draft.npcs[id]![field]}
+                onChange={(next) => update((d) => (d.npcs[id]![field] = next))}
+              />
+            ))}
+            <EditorField
+              label="Inner voice"
+              value={draft.npcs[id]!.innerVoice ?? ''}
+              onChange={(next) => update((d) => (d.npcs[id]!.innerVoice = next.length > 0 ? next : undefined))}
+            />
+          </div>
+        </div>
+      ))}
+
+      <div className="flex items-center justify-end gap-2">
+        <SecondaryButton onPress={onCancel} disabled={saving}>
+          Cancel
+        </SecondaryButton>
+        <PrimaryButton onPress={() => void save()} disabled={saving}>
+          Save
+        </PrimaryButton>
+      </div>
+    </div>
   );
 }
 

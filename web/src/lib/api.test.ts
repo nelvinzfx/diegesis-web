@@ -10,12 +10,15 @@ import {
   buildSettingsPayload,
   clearMemories,
   deleteMemoryAt,
+  getTracker,
   importNpcJson,
   importNpcPngBytes,
   playOpening,
   streamOpening,
   updateSettings,
+  updateTracker,
 } from './api';
+import type { TrackerState } from './types';
 
 // Safe minimal PNG signature for body-shape assertions.
 const PNG_BYTES = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
@@ -239,5 +242,57 @@ describe('opening endpoints', () => {
     });
     expect(result.text).toBeNull();
     expect(result.terminal?.event).toBe('error');
+  });
+});
+describe('tracker endpoints', () => {
+  const board: TrackerState = {
+    dateTime: 'Rabu, 17 Desember, 16:51 WIB',
+    location: 'Kamar apartemen Zane, Jakarta',
+    atmosphere: 'Malam awal, AC dingin.',
+    player: { look: 'Hoodie gelap', condition: 'Napas berat', carrying: '-' },
+    npcs: {
+      axel: {
+        look: 'Jaket oversize peach',
+        condition: 'Terengah tapi tenang',
+        carrying: '-',
+        innerVoice: '"Lepas semua di aku..."',
+      },
+    },
+    updatedAtTurn: 3,
+  };
+
+  it('getTracker unwraps trackerState (null when never generated)', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ trackerState: null }));
+    await expect(getTracker('c1')).resolves.toBeNull();
+
+    fetchMock.mockResolvedValue(jsonResponse({ trackerState: board }));
+    await expect(getTracker('c1')).resolves.toEqual(board);
+
+    const [url] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe('/api/campaigns/c1/tracker');
+  });
+
+  it('updateTracker PUTs the full board and returns the persisted one', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ ok: true, trackerState: board }));
+    await expect(updateTracker('c1', board)).resolves.toEqual(board);
+
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe('/api/campaigns/c1/tracker');
+    expect(init.method).toBe('PUT');
+    expect(JSON.parse(init.body as string)).toEqual({ trackerState: board });
+  });
+
+  it('updateTracker surfaces ApiError on 400 garbage rejection', async () => {
+    fetchMock.mockResolvedValue({
+      ok: false,
+      status: 400,
+      statusText: 'Bad Request',
+      json: async () => ({ error: 'invalid_tracker_state' }),
+    } as unknown as Response);
+    await expect(updateTracker('c1', board)).rejects.toMatchObject({
+      name: 'ApiError',
+      status: 400,
+      code: 'invalid_tracker_state',
+    });
   });
 });

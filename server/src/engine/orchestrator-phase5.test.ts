@@ -108,6 +108,7 @@ function baseCampaign(): Campaign {
     playerPersona: '',
     openingMessage: '',
     sceneState: { location: 'The Docks', presentNpcIds: ['alice'] },
+    trackerState: null,
     thinkModel: null,
     writeModel: null,
     createdAt: 1000,

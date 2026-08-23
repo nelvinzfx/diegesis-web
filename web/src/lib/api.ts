@@ -11,6 +11,7 @@ import type {
   NpcAgency,
   PublicSettingsView,
   SettingsProvider,
+  TrackerState,
   Turn,
 } from './types';
 
@@ -361,6 +362,25 @@ export function clearMemories(campaignId: string): Promise<void> {
     `/campaigns/${encodeURIComponent(campaignId)}/memories`,
     { method: 'DELETE' },
   ).then(() => undefined);
+}
+
+// ---- Narrative status board -------------------------------------------------
+
+export function getTracker(campaignId: string): Promise<TrackerState | null> {
+  return request<{ trackerState: TrackerState | null }>(
+    `/campaigns/${encodeURIComponent(campaignId)}/tracker`,
+  ).then((r) => r.trackerState);
+}
+
+/** Manual board edit; server validates the shape and bumps updatedAt. */
+export function updateTracker(
+  campaignId: string,
+  trackerState: TrackerState,
+): Promise<TrackerState | null> {
+  return request<{ ok: boolean; trackerState: TrackerState | null }>(
+    `/campaigns/${encodeURIComponent(campaignId)}/tracker`,
+    { method: 'PUT', body: JSON.stringify({ trackerState }) },
+  ).then((r) => r.trackerState);
 }
 
 // ---- Prompt templates -------------------------------------------------------

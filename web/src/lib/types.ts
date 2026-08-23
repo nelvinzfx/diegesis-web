@@ -79,6 +79,24 @@ export interface Turn {
   createdAt: number;
 }
 
+// ---- Narrative status board (per-campaign, web-only) ------------------------
+
+export interface TrackerEntry {
+  look: string;
+  condition: string;
+  carrying: string;
+}
+
+/** Live narrative status board; null on Campaign = never generated. */
+export interface TrackerState {
+  dateTime: string;
+  location: string;
+  atmosphere: string;
+  player: TrackerEntry | null;
+  npcs: Record<string, TrackerEntry & { innerVoice?: string }>;
+  updatedAtTurn: number | null;
+}
+
 // ---- Npc.kt -----------------------------------------------------------------
 
 export interface NpcAgency {
@@ -121,6 +139,7 @@ export interface Campaign {
   /** Editable opening scene text; turn 0 is created from it. */
   openingMessage: string;
   sceneState: SceneState;
+  trackerState: TrackerState | null;
   thinkModel: StageModelSelection | null;
   writeModel: StageModelSelection | null;
   createdAt: number;

@@ -12,6 +12,7 @@ function campaign(title: string): Campaign {
     playerPersona: '',
     openingMessage: '',
     sceneState: { location: '', presentNpcIds: [] },
+    trackerState: null,
     thinkModel: null,
     writeModel: null,
     createdAt: 0,

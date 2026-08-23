@@ -25,6 +25,7 @@ import type {
   MemoryEntry,
   Npc,
   PublicSettingsView,
+  TrackerState,
   Turn,
 } from '../lib/types';
 
@@ -69,6 +70,12 @@ interface ActiveCampaignValue {
   refreshNpcs: () => Promise<void>;
   /** Resolves presentNpcIds / memory scope ids to display names. */
   npcNameById: Record<string, string>;
+
+  /**
+   * Re-reads the live status board from the server (used after a manual
+   * edit save) and patches the active campaign in memory.
+   */
+  refreshTracker: () => Promise<void>;
 
   /** Raw memory log of the active campaign (newest last). */
   memories: MemoryEntry[];
@@ -282,6 +289,26 @@ export function ActiveCampaignProvider({ children }: { children: ReactNode }) {
     }
   }, [campaignId]);
 
+  // ---- narrative status board ---------------------------------------------
+
+  const patchTrackerState = useCallback(
+    (id: string, trackerState: TrackerState | null) => {
+      setCampaigns((prev) => prev.map((c) => (c.id === id ? { ...c, trackerState } : c)));
+    },
+    [],
+  );
+
+  const refreshTracker = useCallback(async () => {
+    if (campaignId === null) return;
+    try {
+      const trackerState = await api.getTracker(campaignId);
+      // null = never generated; keep whatever is already on screen.
+      if (trackerState !== null) patchTrackerState(campaignId, trackerState);
+    } catch {
+      // transient network hiccup; keep the current board
+    }
+  }, [campaignId, patchTrackerState]);
+
   const refreshSettings = useCallback(async () => {
     try {
       setSettings(await api.getSettings());
@@ -356,6 +383,12 @@ export function ActiveCampaignProvider({ children }: { children: ReactNode }) {
               prev.map((c) => (c.id === campaignId ? { ...c, title: t } : c)),
             );
           }
+          // Live status board: patch the campaign so the inspector's Status
+          // section updates instantly without a refetch.
+          const board = (result.terminal.data as Record<string, unknown>)['trackerState'];
+          if (board !== undefined && board !== null && typeof board === 'object') {
+            patchTrackerState(campaignId, board as TrackerState);
+          }
         }
       } catch (error) {
         if (!controller.signal.aborted) {
@@ -369,7 +402,7 @@ export function ActiveCampaignProvider({ children }: { children: ReactNode }) {
       await refreshTurns();
       setStreaming(null);
     },
-    [campaignId, refreshTurns],
+    [campaignId, refreshTurns, patchTrackerState],
   );
 
   const send = useCallback(
@@ -497,6 +530,7 @@ export function ActiveCampaignProvider({ children }: { children: ReactNode }) {
       memories,
       memoriesLoading,
       refreshMemories,
+      refreshTracker,
       selectedTurnIndex,
       selectTurn: setSelectedTurnIndex,
       variantByTurn,
@@ -535,6 +569,7 @@ export function ActiveCampaignProvider({ children }: { children: ReactNode }) {
       memories,
       memoriesLoading,
       refreshMemories,
+      refreshTracker,
       selectedTurnIndex,
       variantByTurn,
       cycleVariant,
