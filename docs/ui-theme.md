@@ -76,7 +76,7 @@ Exactly four radii exist in the app. Never introduce `rounded-sm`,
 | `rounded-full` | pill | chips, circular icon buttons (send/stop), pills, dots |
 
 
-- Cards: `bg-surface-1`, `border border-line`, radius `rounded-lg`,
+- Cards: `bg-surface-1`, `border border-line`, radius `rounded-xl`,
   no shadows on static layouts (shadows reserved for true overlays).
 - Separators between list rows: `divide-y divide-line` or explicit
   `<div className="h-px bg-line">`, not heavier rules.
