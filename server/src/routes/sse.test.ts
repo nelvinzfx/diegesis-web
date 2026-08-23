@@ -28,6 +28,55 @@ async function storedTurns(h: Harness, campaignId: string) {
   return h.hub.turns.list(campaignId);
 }
 
+describe('auto title on first turn', () => {
+  it('names an Untitled campaign and ships campaignTitle in done', async () => {
+    const h = await fresh({
+      fakeOptions: { thinkChunks: ['"Senja Berdarah"'] },
+    });
+    const port = await h.listen();
+    const base = `http://127.0.0.1:${port}`;
+    const res0 = await fetch(`${base}/api/campaigns`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ title: 'Untitled', premise: 'P' }),
+    });
+    const campaignId = ((await res0.json()) as { id: string }).id;
+
+    const res = await fetch(`${base}/api/campaigns/${campaignId}/turns`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ playerInput: 'I chase her through the crowd.' }),
+    });
+    const events = await readSse(res);
+    const done = events[events.length - 1];
+    expect(done.event).toBe('done');
+    expect((done.data as { campaignTitle?: string }).campaignTitle).toBe('Senja Berdarah');
+    const stored = await h.hub.campaigns.get(campaignId);
+    expect(stored?.title).toBe('Senja Berdarah');
+  });
+
+  it('does not touch already titled campaigns', async () => {
+    const h = await fresh({
+      fakeOptions: { thinkChunks: ['"Should Not Appear"'] },
+    });
+    const port = await h.listen();
+    const base = `http://127.0.0.1:${port}`;
+    const campaignId = await makeCampaign(base);
+
+    const res = await fetch(`${base}/api/campaigns/${campaignId}/turns`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ playerInput: 'I push the door open.' }),
+    });
+    const events = await readSse(res);
+    const done = events[events.length - 1] as { event: string; data: Record<string, unknown> };
+    expect(done.event).toBe('done');
+    expect(done.data['campaignTitle']).toBeUndefined();
+    const stored = await h.hub.campaigns.get(campaignId);
+    expect(stored?.title).toBe('T');
+  });
+});
+
 describe('POST /api/campaigns/:id/turns (SSE)', () => {
   it('streams stage/token events in order and persists the turn', async () => {
     const h = await fresh({

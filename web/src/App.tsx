@@ -6,7 +6,7 @@
 
 import { useEffect, useState, type ReactNode } from 'react';
 
-import { MapPin, PanelLeft, PanelRight, X } from 'lucide-react';
+import { PanelLeft, PanelRight, ScrollText, X } from 'lucide-react';
 
 import { cn } from './lib/cn';
 import { useMediaQuery } from './lib/useMediaQuery';
@@ -48,12 +48,15 @@ function Shell(): ReactNode {
 
       {/* Center column */}
       <main className="relative flex min-w-0 flex-1 flex-col">
-        {/* Top bar: scene location left, grouped controls right */}
+        {/* Top bar: auto-generated story title left, grouped controls right */}
         <header className="flex h-12 shrink-0 items-center justify-between gap-3 border-b border-line px-4">
-          <div className="flex min-w-0 items-center gap-2 text-text-low">
-            <MapPin size={13} className="shrink-0" />
-            <span className="truncate text-xs">
-              {campaign?.sceneState.location || campaign?.title || 'Diegesis'}
+          <div className="flex min-w-0 items-center gap-2.5">
+            <ScrollText size={14} strokeWidth={1.75} className="shrink-0 text-text-low" />
+            <span
+              title={campaign?.title || undefined}
+              className="max-w-[46vw] truncate text-[13px] font-medium text-text-mid transition-colors sm:max-w-[420px]"
+            >
+              {campaign?.title?.trim() || 'Untitled story'}
             </span>
           </div>
           <div className="flex shrink-0 items-center gap-1 rounded-lg border border-line bg-surface-1 p-1">

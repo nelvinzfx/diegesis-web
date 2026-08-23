@@ -16,6 +16,7 @@ import type { Request, Response, Router } from 'express';
 import type { Turn } from '../shared/types.js';
 import { param, scopeToRequest, wrap, type RouteContext } from './context.js';
 import { sseEnd, sseInit, sseSend } from './sse.js';
+import { maybeGenerateTitle } from '../server/title-service.js';
 
 async function getCampaignOr404(ctx: RouteContext, req: Request, res: Response): Promise<boolean> {
   const campaign = await ctx.hub.campaigns.get(param(req, 'id'));
@@ -101,6 +102,22 @@ export function registerTurnRoutes(router: Router, ctx: RouteContext): void {
           onChunk: (text) => sseSend(res, 'token', { text }),
         });
         const turn = await findTurnByVariantId(ctx, campaignId, variant.id);
+        // Auto title: first completed turn names an untitled campaign (one
+        // cheap THINK call, hard-capped at MAX_TITLE_CHARS).
+        let campaignTitle: string | undefined;
+        const storedCampaign = await ctx.hub.campaigns.get(campaignId);
+        if (storedCampaign) {
+          const title = await maybeGenerateTitle({
+            caller,
+            settings,
+            campaign: storedCampaign,
+            turn,
+          });
+          if (title !== null) {
+            await ctx.hub.campaigns.save({ ...storedCampaign, title, updatedAt: Date.now() });
+            campaignTitle = title;
+          }
+        }
         sseSend(res, 'done', {
           turn:
             turn ??
@@ -111,6 +128,7 @@ export function registerTurnRoutes(router: Router, ctx: RouteContext): void {
               createdAt: Date.now(),
             } satisfies Turn),
           variant,
+          ...(campaignTitle !== undefined ? { campaignTitle } : {}),
         });
       } catch (error) {
         sseSend(res, 'error', {

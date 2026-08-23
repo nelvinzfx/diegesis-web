@@ -230,6 +230,19 @@ export function ActiveCampaignProvider({ children }: { children: ReactNode }) {
         ) {
           setStreamError((result.terminal.data as Record<string, unknown>)['message'] as string);
         }
+        if (
+          !controller.signal.aborted &&
+          result.terminal?.event === 'done' &&
+          typeof result.terminal.data === 'object' &&
+          result.terminal.data !== null
+        ) {
+          const t = (result.terminal.data as Record<string, unknown>)['campaignTitle'];
+          if (typeof t === 'string' && t.length > 0) {
+            setCampaigns((prev) =>
+              prev.map((c) => (c.id === campaignId ? { ...c, title: t } : c)),
+            );
+          }
+        }
       } catch (error) {
         if (!controller.signal.aborted) {
           setStreamError(error instanceof Error ? error.message : String(error));
