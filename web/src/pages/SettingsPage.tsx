@@ -1,36 +1,39 @@
 /**
- * BYOK settings page. The GET view never echoes keys (only *Set flags), so
- * key inputs start empty; a field left empty is OMITTED from the PUT payload
- * and the stored key survives. The server additionally treats empty-string
- * key fields as "unchanged", but omission is the honest client shape.
+ * BYOK settings page, provider-first.
+ *
+ * ONE global provider choice (openai-compat | anthropic) picked via two big
+ * selector cards; only the active provider's connection fields render below.
+ * Models are plain id strings under the flat schema. The GET view never
+ * echoes keys (only *Set flags), so key inputs start empty; a field left
+ * empty is OMITTED from the PUT payload and the stored key survives.
+ *
+ * HeroUI v3 components (Card, Chip, Input, InputGroup, Button) styled with
+ * the Diegesis tokens per docs/ui-theme.md: hairlines, four radii, lucide.
  */
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
-import { Eye, EyeOff, Save } from 'lucide-react';
+import { Button, Card, Chip, Input, InputGroup } from '@heroui/react';
+import { CheckCircle2, Cpu, Eye, EyeOff, Globe, Save } from 'lucide-react';
 
-import {
-  InlineNote,
-  PageHeader,
-  PrimaryButton,
-  SectionLabel,
-  SelectInput,
-  TextInput,
-} from '../components/common';
+import { InlineNote, PageHeader, SectionLabel } from '../components/common';
 import { buildSettingsPayload, updateSettings, type SettingsFormState } from '../lib/api';
-import type { PublicSettingsView } from '../lib/types';
+import type { PublicSettingsView, SettingsProvider } from '../lib/types';
 import { useActiveCampaign } from '../state/ActiveCampaignContext';
 
 const MIN_TOKENS = 512;
 const EFFORTS = ['low', 'medium', 'high', 'xhigh'] as const;
 
+const FIELD_CLASSES =
+  'h-9 w-full rounded-lg border border-line bg-surface-1 px-3 text-sm text-text-hi ' +
+  'transition-colors placeholder:text-text-low focus:border-line-strong';
+
 interface FormStrings {
+  provider: SettingsProvider;
   openaiBaseUrl: string;
   openaiApiKey: string;
   anthropicApiKey: string;
-  thinkProvider: string;
   thinkModel: string;
-  writeProvider: string;
   writeModel: string;
   language: string;
   thinkingEffort: string;
@@ -40,13 +43,12 @@ interface FormStrings {
 
 function seedForm(s: PublicSettingsView): FormStrings {
   return {
+    provider: s.provider,
     openaiBaseUrl: s.openaiBaseUrl,
     openaiApiKey: '',
     anthropicApiKey: '',
-    thinkProvider: s.thinkModel.provider,
-    thinkModel: s.thinkModel.model,
-    writeProvider: s.writeModel.provider,
-    writeModel: s.writeModel.model,
+    thinkModel: s.thinkModel,
+    writeModel: s.writeModel,
     language: s.language,
     thinkingEffort: s.thinkingEffort,
     writeMaxTokens: String(s.writeMaxTokens),
@@ -62,6 +64,57 @@ function parseTokenField(value: string): number | null {
   return Number.isInteger(parsed) && parsed >= MIN_TOKENS ? parsed : null;
 }
 
+/** One of the two big provider selector cards. */
+function ProviderCard({
+  title,
+  description,
+  icon: Icon,
+  selected,
+  onSelect,
+}: {
+  title: string;
+  description: string;
+  icon: typeof Globe;
+  selected: boolean;
+  onSelect: () => void;
+}): ReactNode {
+  return (
+    <Card
+      role="radio"
+      aria-checked={selected}
+      tabIndex={0}
+      onClick={onSelect}
+      onKeyDown={(e: React.KeyboardEvent) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onSelect();
+        }
+      }}
+      className={`cursor-pointer gap-2 rounded-xl p-4 shadow-none outline-none transition-colors ${
+        selected
+          ? 'border border-line-strong bg-surface-2'
+          : 'border border-line bg-surface-1 opacity-70 hover:opacity-100'
+      }`}
+    >
+      <div className="flex items-center justify-between">
+        <Icon
+          size={18}
+          strokeWidth={1.75}
+          className={selected ? 'text-text-hi' : 'text-text-low'}
+        />
+        {selected && (
+          <CheckCircle2 size={15} strokeWidth={1.75} className="text-text-hi" />
+        )}
+      </div>
+      <div className={`text-sm font-medium ${selected ? 'text-text-hi' : 'text-text-mid'}`}>
+        {title}
+      </div>
+      <p className="text-[11px] leading-relaxed text-text-low">{description}</p>
+    </Card>
+  );
+}
+
+/** Password input with visibility toggle and a "key set" status chip. */
 function KeyField({
   label,
   value,
@@ -81,34 +134,44 @@ function KeyField({
       <div className="mb-1.5 flex items-baseline justify-between">
         <span className="text-xs text-text-mid">{label}</span>
         {isSet !== null && (
-          <span
-            className={`font-mono text-[10px] uppercase tracking-[0.14em] ${
-              isSet ? 'text-text-low' : 'text-accent-amber'
+          <Chip
+            className={`rounded-full border bg-transparent px-2 py-0 font-mono text-[10px] uppercase tracking-[0.14em] ${
+              isSet ? 'border-line text-text-low' : 'border-accent-amber/40 text-accent-amber'
             }`}
           >
             {isSet ? 'key set' : 'not set'}
-          </span>
+          </Chip>
         )}
       </div>
-      <div className="relative">
-        <TextInput
+      <InputGroup
+        fullWidth
+        className="rounded-lg border border-line bg-surface-1 shadow-none focus-within:border-line-strong"
+      >
+        <InputGroup.Input
           type={visible ? 'text' : 'password'}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
           autoComplete="off"
           spellCheck={false}
-          className="pr-9"
+          aria-label={label}
+          className="h-9 py-0 text-sm text-text-hi placeholder:text-text-low"
         />
-        <button
-          type="button"
-          aria-label={visible ? 'Hide key' : 'Show key'}
-          onClick={() => setVisible((v) => !v)}
-          className="absolute right-1 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-lg text-text-low transition-colors hover:bg-surface-2 hover:text-text-mid"
-        >
-          {visible ? <EyeOff size={14} strokeWidth={1.75} /> : <Eye size={14} strokeWidth={1.75} />}
-        </button>
-      </div>
+        <InputGroup.Suffix className="border-l-0 px-1">
+          <button
+            type="button"
+            aria-label={visible ? 'Hide key' : 'Show key'}
+            onClick={() => setVisible((v) => !v)}
+            className="flex h-7 w-7 items-center justify-center rounded-lg text-text-low transition-colors hover:bg-surface-2 hover:text-text-mid"
+          >
+            {visible ? (
+              <EyeOff size={14} strokeWidth={1.75} />
+            ) : (
+              <Eye size={14} strokeWidth={1.75} />
+            )}
+          </button>
+        </InputGroup.Suffix>
+      </InputGroup>
     </div>
   );
 }
@@ -126,13 +189,14 @@ function TokenField({
 }): ReactNode {
   return (
     <div>
-      <TextInput
+      <Input
         value={value}
         inputMode="numeric"
         onChange={(e) => onChange(e.target.value)}
         aria-label={label}
         aria-invalid={error || undefined}
-        className={error ? 'border-accent-red/60' : undefined}
+        fullWidth
+        className={`${FIELD_CLASSES} ${error ? 'border-accent-red/60' : ''}`}
       />
       {error && (
         <p className="mt-1 text-[11px] text-accent-red">Integer of at least {MIN_TOKENS}.</p>
@@ -196,6 +260,7 @@ export function SettingsPage(): ReactNode {
   }
 
   const invalid = errors.writeMaxTokens || errors.contextWindowTokens;
+  const openai = form.provider === 'openai-compat';
 
   const save = async (): Promise<void> => {
     if (invalid || saving) return;
@@ -203,12 +268,13 @@ export function SettingsPage(): ReactNode {
     setSaveError(null);
     try {
       const payload: SettingsFormState = {
+        provider: form.provider,
         openaiBaseUrl: form.openaiBaseUrl.trim(),
         // Empty key fields stay out of the payload entirely.
         openaiApiKey: form.openaiApiKey,
         anthropicApiKey: form.anthropicApiKey,
-        thinkModel: { provider: form.thinkProvider, model: form.thinkModel.trim() },
-        writeModel: { provider: form.writeProvider, model: form.writeModel.trim() },
+        thinkModel: form.thinkModel.trim(),
+        writeModel: form.writeModel.trim(),
         language: form.language.trim(),
         thinkingEffort: form.thinkingEffort,
         writeMaxTokens: parseTokenField(form.writeMaxTokens) as number,
@@ -234,84 +300,106 @@ export function SettingsPage(): ReactNode {
         description="Bring your own keys. Nothing leaves this server except model calls."
       />
 
-      {/* Providers */}
+      {/* Provider */}
       <section className="pt-6 first:pt-0">
-        <SectionLabel>Providers</SectionLabel>
-        <div className="mt-3 flex flex-col gap-4">
-          <label className="block">
-            <span className="mb-1.5 block text-xs text-text-mid">
-              OpenAI-compatible base URL
-            </span>
-            <TextInput
-              value={form.openaiBaseUrl}
-              onChange={(e) => set({ openaiBaseUrl: e.target.value })}
-              placeholder="https://api.openai.com/v1"
-              spellCheck={false}
-            />
-          </label>
-          <KeyField
-            label="OpenAI API key"
-            value={form.openaiApiKey}
-            onChange={(v) => set({ openaiApiKey: v })}
-            placeholder={settings?.openaiKeySet ? 'Leave empty to keep the stored key' : 'sk-...'}
-            isSet={settings === null ? null : settings.openaiKeySet}
+        <SectionLabel>Provider</SectionLabel>
+        <div
+          role="radiogroup"
+          aria-label="Provider"
+          className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2"
+        >
+          <ProviderCard
+            title="OpenAI compatible"
+            description="Any /v1 chat completions endpoint: OpenAI, gateways, local servers."
+            icon={Globe}
+            selected={openai}
+            onSelect={() => set({ provider: 'openai-compat' })}
           />
-          <KeyField
-            label="Anthropic API key"
-            value={form.anthropicApiKey}
-            onChange={(v) => set({ anthropicApiKey: v })}
-            placeholder={
-              settings?.anthropicKeySet ? 'Leave empty to keep the stored key' : 'sk-ant-...'
-            }
-            isSet={settings === null ? null : settings.anthropicKeySet}
+          <ProviderCard
+            title="Anthropic compatible"
+            description="Claude models through the official Anthropic API."
+            icon={Cpu}
+            selected={!openai}
+            onSelect={() => set({ provider: 'anthropic' })}
           />
-          <p className="text-[11px] leading-relaxed text-text-low">
-            Keys are redacted server side and never echoed back. Leave a key field empty to keep
-            the stored value; type to replace it.
-          </p>
         </div>
+
+        {/* Active provider connection: only its fields exist in the DOM. */}
+        <Card
+          key={form.provider}
+          className="mt-3 gap-4 rounded-xl border border-line bg-surface-1 p-4 shadow-none"
+        >
+          {openai ? (
+            <>
+              <label className="block">
+                <span className="mb-1.5 block text-xs text-text-mid">Base URL</span>
+                <Input
+                  value={form.openaiBaseUrl}
+                  onChange={(e) => set({ openaiBaseUrl: e.target.value })}
+                  placeholder="https://api.openai.com/v1"
+                  spellCheck={false}
+                  fullWidth
+                  className={FIELD_CLASSES}
+                />
+              </label>
+              <KeyField
+                label="OpenAI API key"
+                value={form.openaiApiKey}
+                onChange={(v) => set({ openaiApiKey: v })}
+                placeholder={
+                  settings?.openaiKeySet ? 'Leave empty to keep the stored key' : 'sk-...'
+                }
+                isSet={settings === null ? null : settings.openaiKeySet}
+              />
+            </>
+          ) : (
+            <KeyField
+              label="Anthropic API key"
+              value={form.anthropicApiKey}
+              onChange={(v) => set({ anthropicApiKey: v })}
+              placeholder={
+                settings?.anthropicKeySet ? 'Leave empty to keep the stored key' : 'sk-ant-...'
+              }
+              isSet={settings === null ? null : settings.anthropicKeySet}
+            />
+          )}
+          <p className="text-[11px] leading-relaxed text-text-low">
+            Keys are redacted server side and never echoed back. Leave the key field empty to
+            keep the stored value; type to replace it.
+          </p>
+        </Card>
       </section>
 
       {/* Models */}
       <section className="pt-8">
         <SectionLabel>Models</SectionLabel>
-        <div className="mt-3 grid grid-cols-2 gap-4">
-          <div className="flex flex-col gap-3">
-            <span className="text-xs font-medium text-text-hi">Think model</span>
-            <SelectInput
-              value={form.thinkProvider}
-              onChange={(e) => set({ thinkProvider: e.target.value })}
-              aria-label="Think model provider"
-            >
-              <option value="openai-compat">openai</option>
-              <option value="anthropic">anthropic</option>
-            </SelectInput>
-            <TextInput
+        <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <label className="block">
+            <span className="mb-1.5 block text-xs text-text-mid">Think model</span>
+            <Input
               value={form.thinkModel}
               onChange={(e) => set({ thinkModel: e.target.value })}
               placeholder="model id"
               aria-label="Think model id"
               spellCheck={false}
+              fullWidth
+              className={FIELD_CLASSES}
             />
-          </div>
-          <div className="flex flex-col gap-3">
-            <span className="text-xs font-medium text-text-hi">Write model</span>
-            <SelectInput
-              value={form.writeProvider}
-              onChange={(e) => set({ writeProvider: e.target.value })}
-              aria-label="Write model provider"
-            >
-              <option value="openai-compat">openai</option>
-              <option value="anthropic">anthropic</option>
-            </SelectInput>
-            <TextInput
+            <p className="mt-1 text-[11px] text-text-low">Used for planning and routing.</p>
+          </label>
+          <label className="block">
+            <span className="mb-1.5 block text-xs text-text-mid">Write model</span>
+            <Input
               value={form.writeModel}
               onChange={(e) => set({ writeModel: e.target.value })}
               placeholder="model id"
               aria-label="Write model id"
               spellCheck={false}
+              fullWidth
+              className={FIELD_CLASSES}
             />
-          </div>
+            <p className="mt-1 text-[11px] text-text-low">Writes the scene prose.</p>
+          </label>
         </div>
       </section>
 
@@ -321,10 +409,12 @@ export function SettingsPage(): ReactNode {
         <div className="mt-3 flex flex-col gap-1.5">
           <label className="block">
             <span className="mb-1.5 block text-xs text-text-mid">Language</span>
-            <TextInput
+            <Input
               value={form.language}
               onChange={(e) => set({ language: e.target.value })}
               placeholder="English"
+              fullWidth
+              className={FIELD_CLASSES}
             />
           </label>
           <p className="text-[11px] leading-relaxed text-text-low">
@@ -386,10 +476,16 @@ export function SettingsPage(): ReactNode {
       {/* Save */}
       <div className="sticky bottom-0 -mx-6 mt-10 border-t border-line bg-bg px-6 py-4">
         <div className="flex items-center gap-4">
-          <PrimaryButton onPress={() => void save()} disabled={invalid || saving}>
+          <Button
+            variant="primary"
+            size="sm"
+            isDisabled={invalid || saving}
+            onClick={() => void save()}
+            className="h-9 gap-1.5 rounded-lg bg-text-hi px-3 text-sm font-medium text-black hover:bg-text-hi/85"
+          >
             <Save size={14} strokeWidth={1.75} />
             Save
-          </PrimaryButton>
+          </Button>
           {savedAt !== null && <InlineNote tone="success">Settings saved.</InlineNote>}
           {saveError !== null && <InlineNote tone="error">{saveError}</InlineNote>}
         </div>

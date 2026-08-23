@@ -125,9 +125,15 @@ export interface Campaign {
 
 // ---- Settings (public view: keys are never echoed back) ---------------------
 
+/** ONE global provider choice; campaign-level overrides keep the object shape. */
+export type SettingsProvider = 'openai-compat' | 'anthropic';
+
 export interface PublicSettingsView {
-  thinkModel: StageModelSelection;
-  writeModel: StageModelSelection;
+  provider: SettingsProvider;
+  /** Model id only; provider comes from `provider`. */
+  thinkModel: string;
+  writeModel: string;
+  /** Used only when provider = 'openai-compat'. */
   openaiBaseUrl: string;
   /** Always "" in the public view; use the *Set flags instead. */
   openaiApiKey: string;

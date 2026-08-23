@@ -11,7 +11,7 @@
 import type { AppSettings } from '../shared/types.js';
 import type { SettingsStorage } from '../storage/settings-storage.js';
 import type { EnvProviderDefaults } from './env.js';
-import { resolveEffectiveSettings } from './env.js';
+import { migrateStoredSettings, resolveEffectiveSettings } from './env.js';
 
 export class SettingsService {
   constructor(
@@ -23,9 +23,14 @@ export class SettingsService {
     return resolveEffectiveSettings(await this.storage.load(), this.envDefaults);
   }
 
-  /** Merges a patch over the STORED overlay (not the effective view). */
+  /**
+   * Merges a patch over the STORED overlay (not the effective view). The
+   * current overlay is migrated to the flat schema first, so legacy
+   * {provider, model} objects are scrubbed to strings on the next save.
+   */
   async update(patch: Partial<AppSettings>): Promise<AppSettings> {
-    const current = (await this.storage.load()) ?? {};
+    const current =
+      migrateStoredSettings(((await this.storage.load()) ?? {}) as Record<string, unknown>) ?? {};
     await this.storage.save({ ...stripUnknownKeys(current), ...stripEmptyKeys(patch) });
     return this.get();
   }
@@ -34,6 +39,7 @@ export class SettingsService {
 /** Drops legacy/unknown keys (e.g. the removed thinkMaxTokens) on save. */
 function stripUnknownKeys(stored: Record<string, unknown>): Partial<AppSettings> {
   const known: Array<keyof AppSettings> = [
+    'provider',
     'thinkModel',
     'writeModel',
     'openaiBaseUrl',

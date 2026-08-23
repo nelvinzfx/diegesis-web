@@ -7,10 +7,11 @@ import { defaultAppSettings, defaultNpcAgency, defaultSceneState } from './types
  * These tests pin the exact JSON field names so data files stay portable.
  */
 describe('shared model JSON field names', () => {
-  it('AppSettings defaults match AppSettings.kt exactly', () => {
+  it('AppSettings defaults use the flat provider-first schema', () => {
     const s = defaultAppSettings();
-    expect(s.thinkModel).toEqual({ provider: 'openai-compat', model: 'gpt-4o-mini' });
-    expect(s.writeModel).toEqual({ provider: 'anthropic', model: 'claude-3-5-sonnet-20241022' });
+    expect(s.provider).toBe('openai-compat');
+    expect(s.thinkModel).toBe('gpt-4o-mini');
+    expect(s.writeModel).toBe('gpt-4o');
     expect(s.openaiBaseUrl).toBe('https://api.openai.com/v1');
     expect(s.openaiApiKey).toBe('');
     expect(s.anthropicApiKey).toBe('');

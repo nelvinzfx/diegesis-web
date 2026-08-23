@@ -10,7 +10,7 @@ import type {
   Npc,
   NpcAgency,
   PublicSettingsView,
-  StageModelSelection,
+  SettingsProvider,
   Turn,
 } from './types';
 
@@ -77,11 +77,13 @@ export function updateSettings(
  * keys as "unchanged", but omitting is the honest shape).
  */
 export interface SettingsFormState {
+  provider: SettingsProvider;
   openaiBaseUrl: string;
   openaiApiKey: string;
   anthropicApiKey: string;
-  thinkModel: StageModelSelection;
-  writeModel: StageModelSelection;
+  /** Plain model id strings under the flat schema. */
+  thinkModel: string;
+  writeModel: string;
   language: string;
   thinkingEffort: string;
   writeMaxTokens: number;
@@ -90,6 +92,7 @@ export interface SettingsFormState {
 
 export function buildSettingsPayload(form: SettingsFormState): Record<string, unknown> {
   return {
+    provider: form.provider,
     openaiBaseUrl: form.openaiBaseUrl,
     ...(form.openaiApiKey.length > 0 ? { openaiApiKey: form.openaiApiKey } : {}),
     ...(form.anthropicApiKey.length > 0 ? { anthropicApiKey: form.anthropicApiKey } : {}),

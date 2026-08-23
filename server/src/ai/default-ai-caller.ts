@@ -8,10 +8,11 @@
  *    tokens → the iterable.
  *  - streamProse: WRITE model, streaming; prose only.
  *
- * Provider selection per StageModelSelection.provider: 'anthropic' takes the
- * @anthropic-ai/sdk path, everything else ('openai-compat', the default)
- * takes the OpenAI-compatible path via the `openai` SDK with configurable
- * baseURL.
+ * Provider selection per the ONE global AppSettings.provider: 'anthropic'
+ * takes the @anthropic-ai/sdk path (SDK-default base URL), 'openai-compat'
+ * (the default) takes the OpenAI-compatible path via the `openai` SDK with
+ * configurable baseURL. thinkModel/writeModel are plain model-id strings;
+ * the effective {provider, model} selection is built per call.
  *
  * THINK-call extras come from the engine's thinkRequestExtras/ThinkingEffort:
  *  - openai-compat: top-level reasoning_effort on THINK calls only.
@@ -111,14 +112,14 @@ export class DefaultAiCaller implements AiCaller {
   /** Non-streaming THINK-model completion; null on transport failure. */
   private async completeThink(messages: readonly ChatMessage[]): Promise<string | null> {
     const s = await this.getSettings();
-    if (s.thinkModel.provider === PROVIDER_ANTHROPIC) {
+    if (s.provider === PROVIDER_ANTHROPIC) {
       const { customBody } = thinkRequestExtras(s, PROVIDER_ANTHROPIC, PROSE_TEMPERATURE);
       const thinking = customBody.find((b) => b.key === 'thinking')?.value as
         | Anthropic.ThinkingConfigParam
         | undefined;
       const response = await this.anthropicClient(s).messages.create(
         {
-          model: s.thinkModel.model,
+          model: s.thinkModel,
           max_tokens: ThinkingEffort.thinkMaxTokensFor(s.thinkingEffort),
           system: systemContent(messages),
           messages: chatMessages(messages),
@@ -136,7 +137,7 @@ export class DefaultAiCaller implements AiCaller {
     const { customBody, temperature } = thinkRequestExtras(s, PROVIDER_OPENAI, PROSE_TEMPERATURE);
     const extras = Object.fromEntries(customBody.map((b) => [b.key, b.value]));
     const body = {
-      model: s.thinkModel.model,
+      model: s.thinkModel,
       messages: messages.map((m) => ({ role: m.role, content: m.content })),
       max_tokens: ThinkingEffort.thinkMaxTokensFor(s.thinkingEffort),
       ...(temperature !== null ? { temperature } : {}),
@@ -158,10 +159,10 @@ export class DefaultAiCaller implements AiCaller {
     hooks?: StreamHooks,
   ): AsyncGenerator<string> {
     const s = await this.getSettings();
-    if (s.writeModel.provider === PROVIDER_ANTHROPIC) {
+    if (s.provider === PROVIDER_ANTHROPIC) {
       yield* this.streamAnthropic(
         {
-          model: s.writeModel.model,
+          model: s.writeModel,
           max_tokens: s.writeMaxTokens,
           system: systemPrompt,
           messages: [{ role: 'user', content: userPrompt }],
@@ -172,7 +173,7 @@ export class DefaultAiCaller implements AiCaller {
     }
     yield* this.streamOpenAI(
       {
-        model: s.writeModel.model,
+        model: s.writeModel,
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt },
@@ -191,14 +192,14 @@ export class DefaultAiCaller implements AiCaller {
     hooks?: StreamHooks,
   ): AsyncGenerator<string> {
     const s = await this.getSettings();
-    if (s.thinkModel.provider === PROVIDER_ANTHROPIC) {
+    if (s.provider === PROVIDER_ANTHROPIC) {
       const { customBody } = thinkRequestExtras(s, PROVIDER_ANTHROPIC, PROSE_TEMPERATURE);
       const thinking = customBody.find((b) => b.key === 'thinking')?.value as
         | Anthropic.ThinkingConfigParam
         | undefined;
       yield* this.streamAnthropic(
         {
-          model: s.thinkModel.model,
+          model: s.thinkModel,
           max_tokens: ThinkingEffort.thinkMaxTokensFor(s.thinkingEffort),
           system: systemPrompt,
           messages: [{ role: 'user', content: userPrompt }],
@@ -212,7 +213,7 @@ export class DefaultAiCaller implements AiCaller {
     const extras = Object.fromEntries(customBody.map((b) => [b.key, b.value]));
     yield* this.streamOpenAI(
       {
-        model: s.thinkModel.model,
+        model: s.thinkModel,
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt },

@@ -322,13 +322,86 @@ describe('settings routes', () => {
       anthropicApiKey: string;
       openaiKeySet: boolean;
       anthropicKeySet: boolean;
-      thinkModel: { provider: string };
+      provider: string;
+      thinkModel: unknown;
+      writeModel: unknown;
     };
     expect(view.openaiApiKey).toBe('');
     expect(view.anthropicApiKey).toBe('');
     expect(view.openaiKeySet).toBe(true);
     expect(view.anthropicKeySet).toBe(true);
-    expect(view.thinkModel.provider).toBe('openai-compat'); // default overlay applied
+    expect(view.provider).toBe('openai-compat'); // default overlay applied
+    // Flat schema: model fields are plain strings, never objects.
+    expect(typeof view.thinkModel).toBe('string');
+    expect(typeof view.writeModel).toBe('string');
+  });
+
+  it('GET migrates a legacy object-shaped settings.json to the flat view', async () => {
+    const h = await fresh({
+      storedSettings: {
+        thinkModel: { provider: 'openai', model: 'gpt-5-mini' },
+        writeModel: { provider: 'anthropic', model: 'claude-opus-4' },
+      },
+    });
+    const port = await h.listen();
+    const view = await json<{ provider: string; thinkModel: string; writeModel: string }>(
+      await fetch(`http://127.0.0.1:${port}/api/settings`),
+    );
+    expect(view.provider).toBe('openai-compat'); // 'openai' normalized
+    expect(view.thinkModel).toBe('gpt-5-mini');
+    expect(view.writeModel).toBe('claude-opus-4');
+  });
+
+  it('PUT rejects unknown and empty provider values with 400', async () => {
+    const h = await fresh();
+    const port = await h.listen();
+    const base = `http://127.0.0.1:${port}`;
+    for (const provider of ['gemini', '', 'OPENAI-COMPAT', 42]) {
+      const res = await fetch(`${base}/api/settings`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ provider }),
+      });
+      expect(res.status).toBe(400);
+      const body = await json<{ error: string }>(res);
+      expect(body.error).toBe('invalid_provider');
+    }
+  });
+
+  it('PUT switches provider both ways and scrubs stale legacy keys on save', async () => {
+    const h = await fresh({
+      storedSettings: {
+        thinkModel: { provider: 'openai', model: 'gpt-5-mini' },
+        writeModel: { provider: 'anthropic', model: 'claude-opus-4' },
+        thinkMaxTokens: 4096, // long-removed key must also be dropped
+      },
+    });
+    const port = await h.listen();
+    const base = `http://127.0.0.1:${port}`;
+
+    const toAnthropic = await json<{ provider: string }>(
+      await fetch(`${base}/api/settings`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ provider: 'anthropic', thinkModel: 'claude-sonnet-4' }),
+      }),
+    );
+    expect(toAnthropic.provider).toBe('anthropic');
+
+    const stored = (await h.hub.settings.load()) as Record<string, unknown>;
+    expect(stored['provider']).toBe('anthropic');
+    expect(stored['thinkModel']).toBe('claude-sonnet-4'); // string, not object
+    expect(stored['writeModel']).toBe('claude-opus-4'); // migrated from legacy object
+    expect('thinkMaxTokens' in stored).toBe(false); // stale key scrubbed
+
+    const back = await json<{ provider: string }>(
+      await fetch(`${base}/api/settings`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ provider: 'openai-compat' }),
+      }),
+    );
+    expect(back.provider).toBe('openai-compat');
   });
 
   it('PUT persists fields and empty-string keys mean "unchanged"', async () => {

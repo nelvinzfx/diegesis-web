@@ -41,11 +41,12 @@ function turn(): Turn {
 }
 
 const settings: AppSettings = {
+  provider: 'openai-compat',
   openaiBaseUrl: '',
   openaiApiKey: '',
   anthropicApiKey: '',
-  thinkModel: { provider: 'openai', model: 'm' },
-  writeModel: { provider: 'openai', model: 'm' },
+  thinkModel: 'm',
+  writeModel: 'm',
   language: 'Bahasa Indonesia',
   thinkingEffort: 'medium',
   writeMaxTokens: 8192,

@@ -134,9 +134,23 @@ export interface Campaign {
 
 // ---- AppSettings.kt ---------------------------------------------------------
 
+/**
+ * ONE global provider choice for both pipeline stages. 'openai-compat' covers
+ * any /v1 chat-completions endpoint (base URL configurable); 'anthropic'
+ * always uses the SDK-default base URL.
+ */
+export type SettingsProvider = 'openai-compat' | 'anthropic';
+
+export const SETTINGS_PROVIDERS: readonly SettingsProvider[] = ['openai-compat', 'anthropic'];
+
+export function isSettingsProvider(value: unknown): value is SettingsProvider {
+  return value === 'openai-compat' || value === 'anthropic';
+}
+
 export const APP_SETTINGS_DEFAULTS = {
-  thinkModel: { provider: 'openai-compat', model: 'gpt-4o-mini' },
-  writeModel: { provider: 'anthropic', model: 'claude-3-5-sonnet-20241022' },
+  provider: 'openai-compat' as SettingsProvider,
+  thinkModel: 'gpt-4o-mini',
+  writeModel: 'gpt-4o',
   openaiBaseUrl: 'https://api.openai.com/v1',
   openaiApiKey: '',
   anthropicApiKey: '',
@@ -147,8 +161,12 @@ export const APP_SETTINGS_DEFAULTS = {
 } as const;
 
 export interface AppSettings {
-  thinkModel: StageModelSelection;
-  writeModel: StageModelSelection;
+  /** Global provider for BOTH think and write stages. */
+  provider: SettingsProvider;
+  /** Model id only; provider comes from `provider`. */
+  thinkModel: string;
+  writeModel: string;
+  /** Used only when provider = 'openai-compat'. */
   openaiBaseUrl: string;
   openaiApiKey: string;
   anthropicApiKey: string;
@@ -161,17 +179,7 @@ export interface AppSettings {
 }
 
 export function defaultAppSettings(): AppSettings {
-  return {
-    thinkModel: { ...APP_SETTINGS_DEFAULTS.thinkModel },
-    writeModel: { ...APP_SETTINGS_DEFAULTS.writeModel },
-    openaiBaseUrl: APP_SETTINGS_DEFAULTS.openaiBaseUrl,
-    openaiApiKey: APP_SETTINGS_DEFAULTS.openaiApiKey,
-    anthropicApiKey: APP_SETTINGS_DEFAULTS.anthropicApiKey,
-    language: APP_SETTINGS_DEFAULTS.language,
-    thinkingEffort: APP_SETTINGS_DEFAULTS.thinkingEffort,
-    writeMaxTokens: APP_SETTINGS_DEFAULTS.writeMaxTokens,
-    contextWindowTokens: APP_SETTINGS_DEFAULTS.contextWindowTokens,
-  };
+  return { ...APP_SETTINGS_DEFAULTS };
 }
 
 /** Factory helpers mirroring the Kotlin default arguments. */

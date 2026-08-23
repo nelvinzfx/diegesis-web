@@ -39,11 +39,12 @@ afterEach(() => {
 
 describe('buildSettingsPayload', () => {
   const base = {
+    provider: 'openai-compat' as const,
     openaiBaseUrl: 'https://api.example.com/v1',
     openaiApiKey: '',
     anthropicApiKey: '',
-    thinkModel: { provider: 'openai-compat', model: 'gpt-4o-mini' },
-    writeModel: { provider: 'anthropic', model: 'claude-3-5-sonnet-20241022' },
+    thinkModel: 'gpt-4o-mini',
+    writeModel: 'gpt-4o',
     language: 'English',
     thinkingEffort: 'high',
     writeMaxTokens: 2048,
@@ -56,6 +57,16 @@ describe('buildSettingsPayload', () => {
     expect(payload).not.toHaveProperty('anthropicApiKey');
     expect(payload['openaiBaseUrl']).toBe('https://api.example.com/v1');
     expect(payload['thinkingEffort']).toBe('high');
+  });
+
+  it('sends the flat provider-first schema: provider + string models', () => {
+    const payload = buildSettingsPayload(base);
+    expect(payload['provider']).toBe('openai-compat');
+    expect(payload['thinkModel']).toBe('gpt-4o-mini');
+    expect(payload['writeModel']).toBe('gpt-4o');
+
+    const anthropic = buildSettingsPayload({ ...base, provider: 'anthropic' as const });
+    expect(anthropic['provider']).toBe('anthropic');
   });
 
   it('includes keys that were typed', () => {

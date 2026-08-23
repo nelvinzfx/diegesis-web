@@ -5,8 +5,8 @@
  */
 
 import { readFileSync } from 'node:fs';
-import type { AppSettings } from '../shared/types.js';
-import { defaultAppSettings } from '../shared/types.js';
+import type { AppSettings, SettingsProvider } from '../shared/types.js';
+import { defaultAppSettings, isSettingsProvider } from '../shared/types.js';
 
 /** Parse `.env` text into a record. Ignores comments and blank lines. */
 export function parseDotEnv(text: string): Record<string, string> {
@@ -71,20 +71,81 @@ function nonEmpty(v: string | undefined): string | null {
 }
 
 /**
+ * Legacy settings.json migration: pre-rework files stored thinkModel and
+ * writeModel as {provider, model} objects and had NO top-level provider.
+ * Map them onto the flat schema without ever crashing:
+ *  - provider = legacy thinkModel.provider, normalized ('openai' and anything
+ *    non-anthropic → 'openai-compat').
+ *  - thinkModel / writeModel = the .model strings.
+ * Already-flat records pass through unchanged. Unknown shapes are dropped so
+ * the defaults apply. Stale object keys are scrubbed on the next save by
+ * settings-service.stripUnknownKeys.
+ */
+export function migrateStoredSettings(
+  stored: Record<string, unknown> | null,
+): Partial<AppSettings> | null {
+  if (stored === null || typeof stored !== 'object') return null;
+  const out: Record<string, unknown> = { ...stored };
+
+  const legacyProvider = (value: unknown): SettingsProvider | null => {
+    if (typeof value !== 'object' || value === null) return null;
+    const p = (value as Record<string, unknown>)['provider'];
+    if (typeof p !== 'string') return null;
+    return p === 'anthropic' ? 'anthropic' : 'openai-compat';
+  };
+  const legacyModel = (value: unknown): string | null => {
+    if (typeof value !== 'object' || value === null) return null;
+    const m = (value as Record<string, unknown>)['model'];
+    return typeof m === 'string' ? m : null;
+  };
+
+  for (const key of ['thinkModel', 'writeModel'] as const) {
+    const value = out[key];
+    if (typeof value === 'string' || value === undefined) continue;
+    const model = legacyModel(value);
+    if (model !== null) out[key] = model;
+    else delete out[key]; // unknown shape: fall back to defaults, never crash
+  }
+
+  // No top-level provider in legacy files: derive it from the legacy
+  // thinkModel object (the think stage led the old per-stage selection).
+  if (!isSettingsProvider(out['provider'])) {
+    const derived =
+      legacyProvider(stored['thinkModel']) ?? legacyProvider(stored['writeModel']);
+    if (derived !== null) out['provider'] = derived;
+    else delete out['provider'];
+  }
+
+  return out as Partial<AppSettings>;
+}
+
+/**
  * Merge order: AppSettings defaults ← .env bootstrap ← stored settings.json.
  * Key/base-URL fields only win from either layer when non-empty, so an
  * explicit settings.json key always beats .env and clearing to '' in
  * settings.json falls back to the bootstrap default.
+ *
+ * Provider bootstrap: when settings.json does not pick a provider, the .env
+ * keys choose the default — only ANTHROPIC_API_KEY set → 'anthropic'; only
+ * OPENAI_* set → 'openai-compat'; both set → 'openai-compat'.
  */
 export function resolveEffectiveSettings(
-  stored: Partial<AppSettings> | null,
+  storedRaw: Partial<AppSettings> | null,
   envDefaults: EnvProviderDefaults,
 ): AppSettings {
   const merged = defaultAppSettings();
+  const stored = migrateStoredSettings(storedRaw as Record<string, unknown> | null);
 
   if (envDefaults.openaiBaseUrl) merged.openaiBaseUrl = envDefaults.openaiBaseUrl;
   if (envDefaults.openaiApiKey) merged.openaiApiKey = envDefaults.openaiApiKey;
   if (envDefaults.anthropicApiKey) merged.anthropicApiKey = envDefaults.anthropicApiKey;
+
+  // .env-driven provider default; both keys set keeps 'openai-compat'.
+  const anthropicOnly =
+    envDefaults.anthropicApiKey !== null &&
+    envDefaults.openaiApiKey === null &&
+    envDefaults.openaiBaseUrl === null;
+  if (anthropicOnly) merged.provider = 'anthropic';
 
   if (stored) {
     if (nonEmpty(stored.openaiBaseUrl)) merged.openaiBaseUrl = stored.openaiBaseUrl as string;
@@ -92,8 +153,13 @@ export function resolveEffectiveSettings(
     if (nonEmpty(stored.anthropicApiKey)) {
       merged.anthropicApiKey = stored.anthropicApiKey as string;
     }
-    if (stored.thinkModel !== undefined) merged.thinkModel = { ...stored.thinkModel };
-    if (stored.writeModel !== undefined) merged.writeModel = { ...stored.writeModel };
+    if (isSettingsProvider(stored.provider)) merged.provider = stored.provider;
+    if (typeof stored.thinkModel === 'string' && stored.thinkModel.length > 0) {
+      merged.thinkModel = stored.thinkModel;
+    }
+    if (typeof stored.writeModel === 'string' && stored.writeModel.length > 0) {
+      merged.writeModel = stored.writeModel;
+    }
     if (typeof stored.language === 'string') merged.language = stored.language;
     if (typeof stored.thinkingEffort === 'string' && stored.thinkingEffort.length > 0) {
       merged.thinkingEffort = stored.thinkingEffort;
