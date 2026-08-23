@@ -65,11 +65,13 @@ function assemble(options: {
   allTurns: Turn[];
   presentNpcs?: Npc[];
   synopsis?: string;
+  location?: string;
   memories?: MemoryEntry[];
   playerInput?: string;
 }) {
   return VisibilityContextAssembler.assemble({
     synopsis: options.synopsis ?? 'fresh synopsis',
+    location: options.location ?? 'The Docks',
     mechanicResults: [],
     presentNpcIds: options.presentNpcIds,
     presentNpcs: options.presentNpcs ?? options.presentNpcIds.map((id) => npc(id)),
@@ -277,6 +279,7 @@ describe('empty playerInput turns (opening scene)', () => {
     const npcs: Npc[] = [];
     const context = VisibilityContextAssembler.assemble({
       synopsis: 'beat',
+      location: 'The harbor',
       mechanicResults: [],
       presentNpcIds: [],
       presentNpcs: npcs,

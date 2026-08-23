@@ -262,6 +262,7 @@ export class PipelineOrchestrator {
 
     const context: SceneContext = assemble({
       synopsis: plotOutput.synopsis,
+      location: campaign.sceneState.location,
       mechanicResults,
       presentNpcIds,
       presentNpcs,

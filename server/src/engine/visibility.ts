@@ -30,6 +30,7 @@ export interface HistoryEntry {
 
 export interface SceneContext {
   synopsis: string;
+  location: string;
   mechanicOutcomes: MechanicResult[];
   presentNpcs: NpcPayload[];
   filteredHistory: HistoryEntry[];
@@ -39,6 +40,7 @@ export interface SceneContext {
 
 export interface AssembleInput {
   synopsis: string;
+  location: string;
   mechanicResults: MechanicResult[];
   presentNpcIds: string[];
   presentNpcs: Npc[];
@@ -49,6 +51,7 @@ export interface AssembleInput {
 
 export function assemble(input: AssembleInput): SceneContext {
   const visibleTurns = filterVisibleTurns(input.allTurns, input.presentNpcIds);
+  const location = input.location;
 
   const history: HistoryEntry[] = [];
   for (const turn of visibleTurns) {
@@ -69,6 +72,7 @@ export function assemble(input: AssembleInput): SceneContext {
 
   return {
     synopsis: input.synopsis,
+    location,
     mechanicOutcomes: input.mechanicResults,
     presentNpcs: npcPayloads,
     filteredHistory: history,
@@ -119,8 +123,11 @@ function formatAgency(npc: Npc): string {
 export function formatPrompt(context: SceneContext): string {
   const sections: string[] = [];
 
-  // 1. Synopsis
+  // 1. Synopsis (+ location when the scene has one)
   sections.push(`## Synopsis\n${context.synopsis}`);
+  if (context.location.length > 0) {
+    sections.push(`## Location\n${context.location}`);
+  }
 
   // 2. Mechanic outcomes
   if (context.mechanicOutcomes.length > 0) {

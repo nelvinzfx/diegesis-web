@@ -145,6 +145,7 @@ export async function buildStagePreview(
       const sceneRetrieval = retrieveMemories(`${playerInput} ${SYNOPSIS_PLACEHOLDER}`, memories);
       const context = assemble({
         synopsis: SYNOPSIS_PLACEHOLDER,
+        location: campaign.sceneState.location,
         mechanicResults: [],
         presentNpcIds: presentIds,
         presentNpcs,

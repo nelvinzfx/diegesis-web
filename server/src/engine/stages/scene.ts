@@ -9,10 +9,10 @@ import { resolvePrompt, type PromptTemplateGetter } from '../prompt-templates.js
 import { formatPrompt, type SceneContext } from '../visibility.js';
 
 export const DEFAULT_NARRATOR_VOICE = `You are the narrator of a tabletop campaign. Write in second person, present tense.
-Literary but direct. Dialog in quotes. Never decide the player's actions or thoughts.
+Write in the story language's everyday spoken register (Bahasa Indonesia: "kamu", never the literary "kau"). Dialog in quotes. Never decide the player's actions or thoughts.
 
 Render the beat described in the synopsis. Honor mechanic outcomes exactly.
-Voice each present NPC according to their sheet and voice examples.
+Voice each present NPC exactly by their voice examples: their slang and rhythm are the reference, not standard polite narration.
 Output markdown prose only — no headers, no meta commentary.`;
 
 /**
@@ -29,7 +29,7 @@ export function resolveSystemPrompt(
   return resolvePrompt(getTemplate, 'scene', narratorVoice.trim(), {
     playerInput: context.playerInput,
     synopsis: context.synopsis,
-    location: context.presentNpcs.map((npc) => npc.name).join(', '),
+    location: context.location,
     presentNpcs: context.presentNpcs.map((npc) => npc.name).join(', '),
   }).trim();
 }
