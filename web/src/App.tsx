@@ -68,7 +68,7 @@ function Shell(): ReactNode {
                 type="button"
                 aria-label="Expand sidebar"
                 onClick={() => setRailOverlayOpen(true)}
-                className="flex h-7 w-7 items-center justify-center rounded-md text-text-low transition-colors hover:bg-surface-2 hover:text-text-hi"
+                className="flex h-7 w-7 items-center justify-center rounded-lg text-text-low transition-colors hover:bg-surface-2 hover:text-text-hi"
               >
                 <PanelLeft size={15} />
               </button>
@@ -79,7 +79,7 @@ function Shell(): ReactNode {
                 aria-label="Toggle inspector"
                 onClick={() => setInspectorOpen((o) => !o)}
                 className={cn(
-                  'flex h-7 w-7 items-center justify-center rounded-md transition-colors hover:bg-surface-2 hover:text-hi',
+                  'flex h-7 w-7 items-center justify-center rounded-lg transition-colors hover:bg-surface-2 hover:text-hi',
                   inspectorOpen ? 'bg-surface-2 text-text-hi' : 'text-text-low',
                 )}
               >
@@ -164,7 +164,7 @@ function DrawerHeader({ title, onClose, live }: { title: string; onClose: () => 
         type="button"
         onClick={onClose}
         aria-label="Close inspector"
-        className="flex h-6 w-6 items-center justify-center rounded-md text-text-low transition-colors hover:bg-surface-2 hover:text-text-hi"
+        className="flex h-6 w-6 items-center justify-center rounded-lg text-text-low transition-colors hover:bg-surface-2 hover:text-text-hi"
       >
         <X size={14} />
       </button>

@@ -275,7 +275,7 @@ function NpcEditor({
             <button
               type="button"
               onClick={() => set({ trackers: [...form.trackers, { key: '', value: '0' }] })}
-              className="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs text-text-low transition-colors hover:bg-surface-2 hover:text-text-hi"
+              className="flex items-center gap-1 rounded-lg px-1.5 py-0.5 text-xs text-text-low transition-colors hover:bg-surface-2 hover:text-text-hi"
             >
               <Plus size={12} /> Add tracker
             </button>
@@ -394,7 +394,7 @@ function NpcCard({
           {Object.entries(npc.trackers).map(([key, value]) => (
             <span
               key={key}
-              className="inline-flex items-center gap-1 rounded-md border border-accent-amber/40 px-1.5 py-0.5 text-[11px] text-accent-amber"
+              className="inline-flex items-center gap-1 rounded-lg border border-accent-amber/40 px-1.5 py-0.5 text-[11px] text-accent-amber"
             >
               {key} {value}
             </span>

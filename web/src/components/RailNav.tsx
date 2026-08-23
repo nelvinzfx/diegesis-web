@@ -52,7 +52,7 @@ export function RailNav({
               type="button"
               onClick={onToggleCollapsed}
               aria-label="Collapse sidebar"
-              className="ml-auto flex h-6 w-6 items-center justify-center rounded-md text-text-low transition-colors hover:bg-surface-2 hover:text-text-mid"
+              className="ml-auto flex h-6 w-6 items-center justify-center rounded-lg text-text-low transition-colors hover:bg-surface-2 hover:text-text-mid"
             >
               <ChevronsLeft size={14} />
             </button>
@@ -63,7 +63,7 @@ export function RailNav({
             type="button"
             onClick={onToggleCollapsed}
             aria-label="Expand sidebar"
-            className="flex h-7 w-7 items-center justify-center rounded-md font-semibold text-text-mid transition-colors hover:bg-surface-2 hover:text-text-hi"
+            className="flex h-7 w-7 items-center justify-center rounded-lg font-semibold text-text-mid transition-colors hover:bg-surface-2 hover:text-text-hi"
           >
             D
           </button>
@@ -94,7 +94,7 @@ export function RailNav({
                 aria-current={active ? 'page' : undefined}
                 title={collapsed ? item.label : undefined}
                 className={cn(
-                  'flex w-full items-center gap-3 rounded-md px-2.5 py-1.5 text-sm transition-colors',
+                  'flex w-full items-center gap-3 rounded-lg px-2.5 py-1.5 text-sm transition-colors',
                   collapsed && 'justify-center px-0 py-2',
                   active
                     ? 'bg-surface-1 text-text-hi shadow-[inset_2px_0_0_0] shadow-line-strong'
@@ -120,7 +120,7 @@ export function RailNav({
               onClick={() => setView('campaign-new')}
               aria-label="New campaign"
               title="New campaign"
-              className="flex h-8 w-8 items-center justify-center rounded-md text-text-low transition-colors hover:bg-surface-1 hover:text-text-mid"
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-text-low transition-colors hover:bg-surface-1 hover:text-text-mid"
             >
               <Plus size={15} strokeWidth={1.75} />
             </button>
@@ -128,7 +128,7 @@ export function RailNav({
               type="button"
               onClick={() => setSwitcherOpen((o) => !o)}
               aria-label="Switch campaign"
-              className="flex h-8 w-8 items-center justify-center rounded-md text-text-low transition-colors hover:bg-surface-1 hover:text-text-mid"
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-text-low transition-colors hover:bg-surface-1 hover:text-text-mid"
             >
               <span className="font-mono text-xs">{campaigns.length}</span>
             </button>
@@ -138,7 +138,7 @@ export function RailNav({
             <button
               type="button"
               onClick={() => setSwitcherOpen((o) => !o)}
-              className="flex w-full items-center rounded-md px-2.5 py-1.5 text-left font-mono text-[10px] uppercase tracking-[0.14em] text-text-low transition-colors hover:bg-surface-1 hover:text-text-mid"
+              className="flex w-full items-center rounded-lg px-2.5 py-1.5 text-left font-mono text-[10px] uppercase tracking-[0.14em] text-text-low transition-colors hover:bg-surface-1 hover:text-text-mid"
               aria-expanded={switcherOpen}
             >
               Campaigns ({campaigns.length})
@@ -149,7 +149,7 @@ export function RailNav({
                   <button
                     type="button"
                     onClick={() => setView('campaign-new')}
-                    className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-xs text-text-low transition-colors hover:bg-surface-1 hover:text-text-hi"
+                    className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs text-text-low transition-colors hover:bg-surface-1 hover:text-text-hi"
                   >
                     <Plus size={13} strokeWidth={1.75} />
                     New
@@ -163,7 +163,7 @@ export function RailNav({
                         type="button"
                         onClick={() => switchCampaign(c.id)}
                         className={cn(
-                          'min-w-0 flex-1 truncate rounded-md px-2.5 py-1.5 text-left text-xs transition-colors',
+                          'min-w-0 flex-1 truncate rounded-lg px-2.5 py-1.5 text-left text-xs transition-colors',
                           active
                             ? 'bg-surface-1 text-text-hi shadow-[inset_2px_0_0_0] shadow-line-strong'
                             : 'text-text-mid hover:bg-surface-1 hover:text-text-hi',
@@ -176,7 +176,7 @@ export function RailNav({
                         onClick={() => setView('campaign-edit', { campaignId: c.id })}
                         aria-label={`Edit ${c.title || 'Untitled'}`}
                         title="Edit campaign"
-                        className="ml-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-text-low opacity-0 transition-opacity hover:bg-surface-2 hover:text-text-hi focus-visible:opacity-100 group-hover:opacity-100"
+                        className="ml-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg text-text-low opacity-0 transition-opacity hover:bg-surface-2 hover:text-text-hi focus-visible:opacity-100 group-hover:opacity-100"
                       >
                         <PencilLine size={12} strokeWidth={1.75} />
                       </button>

@@ -106,7 +106,7 @@ function KeyField({
           type="button"
           aria-label={visible ? 'Hide key' : 'Show key'}
           onClick={() => setVisible((v) => !v)}
-          className="absolute right-1 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-text-low transition-colors hover:bg-surface-2 hover:text-text-mid"
+          className="absolute right-1 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-lg text-text-low transition-colors hover:bg-surface-2 hover:text-text-mid"
         >
           {visible ? <EyeOff size={14} strokeWidth={1.75} /> : <Eye size={14} strokeWidth={1.75} />}
         </button>
@@ -351,7 +351,7 @@ export function SettingsPage(): ReactNode {
                 type="button"
                 onClick={() => set({ thinkingEffort: effort })}
                 aria-pressed={selected}
-                className={`rounded-md px-3 py-1.5 text-xs transition-colors ${
+                className={`rounded-lg px-3 py-1.5 text-xs transition-colors ${
                   selected
                     ? 'bg-text-hi font-medium text-black'
                     : 'text-text-mid hover:text-text-hi'

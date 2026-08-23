@@ -48,7 +48,7 @@ export function IconActionButton({
           aria-label={label}
           disabled={disabled}
           onClick={onPress}
-          className={`flex h-7 w-7 items-center justify-center rounded-md transition-colors hover:bg-surface-2 disabled:pointer-events-none disabled:opacity-40 ${toneClasses[tone]} ${className}`}
+          className={`flex h-7 w-7 items-center justify-center rounded-lg transition-colors hover:bg-surface-2 disabled:pointer-events-none disabled:opacity-40 ${toneClasses[tone]} ${className}`}
         >
           <Icon size={15} strokeWidth={1.75} />
         </button>
@@ -284,7 +284,7 @@ export function Chip({
   return (
     <span
       className={cn(
-        'inline-flex max-w-full items-center truncate rounded-md border px-1.5 py-0.5 text-[11px]',
+        'inline-flex max-w-full items-center truncate rounded-lg border px-1.5 py-0.5 text-[11px]',
         tone === 'cyan'
           ? 'border-accent-cyan/40 text-accent-cyan'
           : tone === 'amber'

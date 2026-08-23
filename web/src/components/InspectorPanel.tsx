@@ -230,7 +230,7 @@ function ThinkingSection({ text }: { text: string }): ReactNode {
         <span className="font-mono normal-case tracking-normal">{open ? '[hide]' : '[show]'}</span>
       </button>
       {open && (
-        <pre className="mt-2 max-h-72 overflow-y-auto whitespace-pre-wrap rounded-md bg-surface-1 p-3 font-mono text-[11px] leading-relaxed text-text-mid">
+        <pre className="mt-2 max-h-72 overflow-y-auto whitespace-pre-wrap rounded-lg bg-surface-1 p-3 font-mono text-[11px] leading-relaxed text-text-mid">
           {text}
         </pre>
       )}
@@ -319,7 +319,7 @@ function ReasoningStream({ text }: { text: string }): ReactNode {
           followingRef.current =
             el.scrollHeight - el.scrollTop - el.clientHeight < FOLLOW_THRESHOLD_PX;
         }}
-        className="mt-2 h-56 overflow-y-auto whitespace-pre-wrap break-words rounded-md bg-surface-1 p-3 font-mono text-[11px] leading-relaxed text-text-mid"
+        className="mt-2 h-56 overflow-y-auto whitespace-pre-wrap break-words rounded-lg bg-surface-1 p-3 font-mono text-[11px] leading-relaxed text-text-mid"
       >
         {text.length > 0 ? text : '...'}
       </pre>

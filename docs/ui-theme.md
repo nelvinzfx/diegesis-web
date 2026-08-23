@@ -63,6 +63,18 @@ green/amber/red. The app root sets `class="dark" data-theme="dark"`;
 there is no runtime switching code.
 
 ## Component conventions
+### Radius scale (locked)
+
+Exactly four radii exist in the app. Never introduce `rounded-sm`,
+`rounded-md`, or raw pixel values.
+
+| Class | Radius | Used for |
+| --- | --- | --- |
+| `rounded-2xl` | 16px | the story input bar shell only (hero element) |
+| `rounded-xl` | 12px | cards, panels, page sections, popover surfaces, toolbar group containers |
+| `rounded-lg` | 8px | buttons, icon buttons, inputs (controls sit one radius step inside their container) |
+| `rounded-full` | pill | chips, circular icon buttons (send/stop), pills, dots |
+
 
 - Cards: `bg-surface-1`, `border border-line`, radius `rounded-lg`,
   no shadows on static layouts (shadows reserved for true overlays).

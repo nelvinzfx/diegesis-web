@@ -140,7 +140,7 @@ function ApiKeyWarning(): ReactNode {
         <button
           type="button"
           onClick={() => setView('settings')}
-          className="rounded-md bg-text-hi px-2.5 py-1 text-xs font-medium text-black transition-colors hover:bg-text-hi/85"
+          className="rounded-lg bg-text-hi px-2.5 py-1 text-xs font-medium text-black transition-colors hover:bg-text-hi/85"
         >
           Open Settings
         </button>

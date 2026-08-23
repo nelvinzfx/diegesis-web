@@ -53,7 +53,7 @@ export function TurnBlock({
       )}
     >
       {/* Hover toolbar */}
-      <div className="absolute -top-1 right-0 z-10 hidden items-center gap-0.5 rounded-md bg-bg/90 px-1 group-hover:flex">
+      <div className="absolute -top-1 right-0 z-10 hidden items-center gap-0.5 rounded-lg bg-bg/90 px-1 group-hover:flex">
         <IconActionButton
           icon={RotateCcw}
           label="Regenerate"
@@ -90,7 +90,7 @@ export function TurnBlock({
                 <button
                   type="button"
                   onClick={() => setConfirmingDelete(false)}
-                  className="rounded-md px-2.5 py-1 text-xs text-text-mid transition-colors hover:bg-surface-2 hover:text-text-hi"
+                  className="rounded-lg px-2.5 py-1 text-xs text-text-mid transition-colors hover:bg-surface-2 hover:text-text-hi"
                 >
                   Cancel
                 </button>
@@ -100,7 +100,7 @@ export function TurnBlock({
                     setConfirmingDelete(false);
                     void deleteFrom(turn.index);
                   }}
-                  className="rounded-md bg-accent-red px-2.5 py-1 text-xs font-medium text-black transition-colors hover:bg-accent-red/85"
+                  className="rounded-lg bg-accent-red px-2.5 py-1 text-xs font-medium text-black transition-colors hover:bg-accent-red/85"
                 >
                   Delete
                 </button>
@@ -161,7 +161,7 @@ function StaticProse({ text, interrupted }: { text: string; interrupted: boolean
         </p>
       ))}
       {interrupted && (
-        <span className="mt-2 inline-flex items-center rounded-sm border-l-2 border-accent-amber bg-surface-2 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.14em] text-accent-amber">
+        <span className="mt-2 inline-flex items-center rounded-lg border-l-2 border-accent-amber bg-surface-2 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.14em] text-accent-amber">
           Interrupted
         </span>
       )}

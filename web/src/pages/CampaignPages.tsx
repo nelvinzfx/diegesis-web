@@ -143,7 +143,7 @@ function ReasoningCollapsible({ text }: { text: string }): ReactNode {
         <span className="font-mono normal-case tracking-normal">{open ? '[hide]' : '[show]'}</span>
       </button>
       {open && (
-        <pre className="mt-2 max-h-56 overflow-y-auto whitespace-pre-wrap rounded-md bg-surface-2 p-3 font-mono text-[11px] leading-relaxed text-text-mid">
+        <pre className="mt-2 max-h-56 overflow-y-auto whitespace-pre-wrap rounded-lg bg-surface-2 p-3 font-mono text-[11px] leading-relaxed text-text-mid">
           {text}
         </pre>
       )}
