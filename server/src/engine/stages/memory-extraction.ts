@@ -4,10 +4,11 @@
  */
 
 import type { AiCaller } from '../ai-caller.js';
+import { resolvePrompt, type PromptTemplateGetter } from '../prompt-templates.js';
 import type { MemoryEntry } from '../../shared/types.js';
 import { asRecord, optString, requireString } from './decode.js';
 
-const SYSTEM_PROMPT = `Extract durable facts from this turn worth remembering across sessions: revelations, decisions, relationships changes, promises, names, places. Ignore transient detail.
+export const DEFAULT_SYSTEM_PROMPT = `Extract durable facts from this turn worth remembering across sessions: revelations, decisions, relationships changes, promises, names, places. Ignore transient detail.
 
 Reply with a JSON array only:
 [{"scope": "campaign", "npc_id": null, "fact": "..."}]
@@ -17,7 +18,22 @@ Reply with a JSON array only:
 - fact: one durable fact, stated plainly
 - Return an empty array [] if nothing durable happened.`;
 
-function userPrompt(playerInput: string, synopsis: string, sceneOutput: string): string {
+/**
+ * System prompt with template override support. Variables:
+ * {{playerInput}}, {{synopsis}}, {{sceneOutput}}.
+ */
+export function resolveSystemPrompt(
+  getTemplate: PromptTemplateGetter | null | undefined,
+  input: { playerInput: string; synopsis: string; sceneOutput: string },
+): string {
+  return resolvePrompt(getTemplate, 'memory-extraction', DEFAULT_SYSTEM_PROMPT, {
+    playerInput: input.playerInput,
+    synopsis: input.synopsis,
+    sceneOutput: input.sceneOutput,
+  });
+}
+
+export function buildUserPrompt(playerInput: string, synopsis: string, sceneOutput: string): string {
   return `## Player action
 ${playerInput}
 
@@ -57,11 +73,17 @@ export function decodeExtractedFacts(raw: string): ExtractedFact[] {
  */
 export async function execute(
   aiCaller: AiCaller,
-  input: { playerInput: string; synopsis: string; sceneOutput: string; turnIndex: number },
+  input: {
+    playerInput: string;
+    synopsis: string;
+    sceneOutput: string;
+    turnIndex: number;
+    getTemplate?: PromptTemplateGetter | null;
+  },
 ): Promise<MemoryEntry[]> {
   const extracted = await aiCaller.generateStructured(
-    SYSTEM_PROMPT,
-    userPrompt(input.playerInput, input.synopsis, input.sceneOutput),
+    resolveSystemPrompt(input.getTemplate ?? null, input),
+    buildUserPrompt(input.playerInput, input.synopsis, input.sceneOutput),
     decodeExtractedFacts,
     [] as ExtractedFact[],
   );

@@ -16,6 +16,7 @@ import { StoryScreen } from './components/StoryScreen';
 import { CampaignEditPage, CampaignNewPage } from './pages/CampaignPages';
 import { MemoriesPage } from './pages/MemoriesPage';
 import { NpcsPage } from './pages/NpcsPage';
+import { PromptsPage } from './pages/PromptsPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { ActiveCampaignProvider, useActiveCampaign } from './state/ActiveCampaignContext';
 
@@ -96,6 +97,7 @@ function Shell(): ReactNode {
             <div className="mx-auto w-full max-w-[720px] px-6 py-8">
               {view === 'npcs' && <NpcsPage />}
               {view === 'memories' && <MemoriesPage />}
+              {view === 'prompts' && <PromptsPage />}
               {view === 'settings' && <SettingsPage />}
               {view === 'campaign-new' && <CampaignNewPage />}
               {view === 'campaign-edit' && <CampaignEditPage />}

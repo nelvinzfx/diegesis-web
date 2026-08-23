@@ -5,7 +5,7 @@
 
 import { useState, type ReactNode } from 'react';
 
-import { BookOpen, Brain, ChevronsLeft, PencilLine, Plus, Settings, Users } from 'lucide-react';
+import { BookOpen, Braces, Brain, ChevronsLeft, PencilLine, Plus, Settings, Users } from 'lucide-react';
 
 import { cn } from '../lib/cn';
 import type { ViewId } from '../state/ActiveCampaignContext';
@@ -21,6 +21,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'story', label: 'Story', icon: BookOpen },
   { id: 'npcs', label: 'NPCs', icon: Users },
   { id: 'memories', label: 'Memories', icon: Brain },
+  { id: 'prompts', label: 'Prompts', icon: Braces },
   { id: 'settings', label: 'Settings', icon: Settings },
 ];
 

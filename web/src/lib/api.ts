@@ -313,3 +313,54 @@ export function clearMemories(campaignId: string): Promise<void> {
     { method: 'DELETE' },
   ).then(() => undefined);
 }
+
+// ---- Prompt templates -------------------------------------------------------
+
+export interface PromptStage {
+  key: string;
+  description: string;
+  variables: string[];
+  default: string;
+  override: string | null;
+}
+
+export interface PromptPreview {
+  stage: string;
+  system: string;
+  user: string;
+  meta: {
+    turnsIncluded: number;
+    turnsDropped: number;
+    presentNpcs: string[];
+  };
+}
+
+export function listPromptTemplates(): Promise<PromptStage[]> {
+  return request<PromptStage[]>('/prompt-templates');
+}
+
+/** Empty template clears the override (server treats '' as reset). */
+export function savePromptTemplate(key: string, template: string): Promise<void> {
+  return request<{ ok: boolean }>(`/prompt-templates/${encodeURIComponent(key)}`, {
+    method: 'PUT',
+    body: JSON.stringify({ template }),
+  }).then(() => undefined);
+}
+
+export function resetPromptTemplate(key: string): Promise<void> {
+  return request<{ ok: boolean }>(`/prompt-templates/${encodeURIComponent(key)}`, {
+    method: 'DELETE',
+  }).then(() => undefined);
+}
+
+export function previewPrompt(
+  campaignId: string,
+  stage: string,
+  playerInput: string,
+): Promise<PromptPreview> {
+  const params = new URLSearchParams({ stage });
+  if (playerInput.trim().length > 0) params.set('playerInput', playerInput.trim());
+  return request<PromptPreview>(
+    `/campaigns/${encodeURIComponent(campaignId)}/prompt-preview?${params.toString()}`,
+  );
+}

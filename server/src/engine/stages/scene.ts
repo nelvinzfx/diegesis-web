@@ -5,6 +5,7 @@
  */
 
 import type { AiCaller, StreamHooks } from '../ai-caller.js';
+import { resolvePrompt, type PromptTemplateGetter } from '../prompt-templates.js';
 import { formatPrompt, type SceneContext } from '../visibility.js';
 
 export const DEFAULT_NARRATOR_VOICE = `You are the narrator of a tabletop campaign. Write in second person, present tense.
@@ -13,6 +14,25 @@ Literary but direct. Dialog in quotes. Never decide the player's actions or thou
 Render the beat described in the synopsis. Honor mechanic outcomes exactly.
 Voice each present NPC according to their sheet and voice examples.
 Output markdown prose only — no headers, no meta commentary.`;
+
+/**
+ * System prompt (narrator voice) with template override support. Variables:
+ * {{playerInput}}, {{synopsis}}, {{location}}, {{presentNpcs}}. An override
+ * replaces the narrator voice entirely; without one the campaign narrator
+ * voice (or the shipped default) is used verbatim.
+ */
+export function resolveSystemPrompt(
+  getTemplate: PromptTemplateGetter | null | undefined,
+  context: SceneContext,
+  narratorVoice: string = DEFAULT_NARRATOR_VOICE,
+): string {
+  return resolvePrompt(getTemplate, 'scene', narratorVoice.trim(), {
+    playerInput: context.playerInput,
+    synopsis: context.synopsis,
+    location: context.presentNpcs.map((npc) => npc.name).join(', '),
+    presentNpcs: context.presentNpcs.map((npc) => npc.name).join(', '),
+  }).trim();
+}
 
 /**
  * Stream the scene prose.
@@ -26,7 +46,8 @@ export async function* execute(
   context: SceneContext,
   narratorVoice: string = DEFAULT_NARRATOR_VOICE,
   hooks?: StreamHooks,
+  getTemplate?: PromptTemplateGetter | null,
 ): AsyncGenerator<string> {
   const userPrompt = formatPrompt(context);
-  yield* aiCaller.streamProse(narratorVoice.trim(), userPrompt, hooks);
+  yield* aiCaller.streamProse(resolveSystemPrompt(getTemplate, context, narratorVoice), userPrompt, hooks);
 }

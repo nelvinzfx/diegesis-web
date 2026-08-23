@@ -14,6 +14,7 @@ import type { OrchestratorStores } from '../engine/orchestrator.js';
 import { CampaignStorage } from './campaign-storage.js';
 import { MemoryStorage } from './memory-storage.js';
 import { NpcStorage } from './npc-storage.js';
+import { PromptTemplateStorage } from './prompt-template-storage.js';
 import { SettingsStorage } from './settings-storage.js';
 import { TurnStorage } from './turn-storage.js';
 
@@ -23,6 +24,7 @@ export interface StorageHub {
   npcs: NpcStorage;
   turns: TurnStorage;
   memories: MemoryStorage;
+  prompts: PromptTemplateStorage;
   stores: OrchestratorStores;
 }
 
@@ -32,6 +34,7 @@ export function createStorageHub(dataRoot: string): StorageHub {
   const npcs = new NpcStorage(dataRoot);
   const turns = new TurnStorage(dataRoot);
   const memories = new MemoryStorage(dataRoot);
+  const prompts = new PromptTemplateStorage(dataRoot);
 
   const stores: OrchestratorStores = {
     loadCampaign: (id) => campaigns.get(id),
@@ -46,5 +49,5 @@ export function createStorageHub(dataRoot: string): StorageHub {
     appendMemory: (id, entry: MemoryEntry) => memories.append(id, entry),
   };
 
-  return { settings, campaigns, npcs, turns, memories, stores };
+  return { settings, campaigns, npcs, turns, memories, prompts, stores };
 }

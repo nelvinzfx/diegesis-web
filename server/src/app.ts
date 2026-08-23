@@ -13,6 +13,7 @@ import type { AiCaller } from './engine/ai-caller.js';
 import { PipelineOrchestrator } from './engine/orchestrator.js';
 import { DefaultAiCaller } from './ai/default-ai-caller.js';
 import { createStorageHub, type StorageHub } from './storage/hub.js';
+import { getterFromOverrides } from './engine/prompt-templates.js';
 import { SettingsService, publicSettingsView } from './server/settings-service.js';
 import {
   applyToProcessEnv,
@@ -27,6 +28,7 @@ import { registerNpcRoutes } from './routes/npcs.js';
 import { registerMemoryRoutes } from './routes/memories.js';
 import { registerTurnRoutes } from './routes/turns.js';
 import { registerPlanRoute } from './routes/plan.js';
+import { registerPromptRoutes } from './routes/prompts.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const webDist = path.resolve(here, '../../web/dist');
@@ -76,8 +78,15 @@ export function createApp(options: CreateAppOptions = {}): express.Express {
     settingsService,
     effectiveSettings: () => settingsService.get(),
     aiCaller: async () => baseCaller,
-    createOrchestrator: (caller, orchestratorOptions) =>
-      new PipelineOrchestrator({ aiCaller: caller, stores: hub.stores, ...orchestratorOptions }),
+    createOrchestrator: async (caller, orchestratorOptions) => {
+      const overrides = await hub.prompts.load();
+      return new PipelineOrchestrator({
+        aiCaller: caller,
+        stores: hub.stores,
+        getTemplates: getterFromOverrides(overrides),
+        ...orchestratorOptions,
+      });
+    },
   };
 
   const app = express();
@@ -97,6 +106,7 @@ export function createApp(options: CreateAppOptions = {}): express.Express {
   registerMemoryRoutes(api, ctx);
   registerTurnRoutes(api, ctx);
   registerPlanRoute(api, ctx);
+  registerPromptRoutes(api, ctx);
   app.use('/api', api);
 
   // Unknown /api routes: JSON 404, never the SPA fallback.

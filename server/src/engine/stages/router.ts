@@ -4,10 +4,11 @@
  */
 
 import type { AiCaller } from '../ai-caller.js';
+import { resolvePrompt, type PromptTemplateGetter } from '../prompt-templates.js';
 import type { MechanicCheck, RouterDecision, SceneState } from '../../shared/types.js';
 import { arrayOrEmpty, boolOrDefault, intOrDefault, asRecord, requireString } from './decode.js';
 
-const SYSTEM_PROMPT = `You are the router for a tabletop RPG turn. Decide if the player's action requires a mechanics check.
+export const DEFAULT_SYSTEM_PROMPT = `You are the router for a tabletop RPG turn. Decide if the player's action requires a mechanics check.
 
 Reply with JSON only:
 {
@@ -22,7 +23,7 @@ Reply with JSON only:
 - run_agency_update: true if NPCs should update their goals after this turn
 - lore_query: reserved for future memory search`;
 
-function userPrompt(playerInput: string, sceneState: SceneState): string {
+export function buildUserPrompt(playerInput: string, sceneState: SceneState): string {
   const location = sceneState.location.length > 0 ? sceneState.location : 'unspecified';
   const npcs = sceneState.presentNpcIds.length > 0 ? sceneState.presentNpcIds.join(', ') : 'none';
   return `Scene state:
@@ -63,14 +64,33 @@ export function decodeRouterDecision(raw: string): RouterDecision {
   };
 }
 
+/**
+ * System prompt with template override support. Variables: {{playerInput}},
+ * {{location}}, {{presentNpcs}}.
+ */
+export function resolveSystemPrompt(
+  getTemplate: PromptTemplateGetter | null | undefined,
+  playerInput: string,
+  sceneState: SceneState,
+): string {
+  const location = sceneState.location.length > 0 ? sceneState.location : 'unspecified';
+  const npcs = sceneState.presentNpcIds.length > 0 ? sceneState.presentNpcIds.join(', ') : 'none';
+  return resolvePrompt(getTemplate, 'router', DEFAULT_SYSTEM_PROMPT, {
+    playerInput,
+    location,
+    presentNpcs: npcs,
+  });
+}
+
 export async function execute(
   aiCaller: AiCaller,
   playerInput: string,
   sceneState: SceneState,
+  getTemplate?: PromptTemplateGetter | null,
 ): Promise<RouterDecision> {
   return aiCaller.generateStructured(
-    SYSTEM_PROMPT,
-    userPrompt(playerInput, sceneState),
+    resolveSystemPrompt(getTemplate, playerInput, sceneState),
+    buildUserPrompt(playerInput, sceneState),
     decodeRouterDecision,
     routerFallback,
   );

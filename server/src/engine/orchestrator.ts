@@ -20,6 +20,7 @@ import type {
   TurnVariant,
 } from '../shared/types.js';
 import type { AiCaller } from './ai-caller.js';
+import type { PromptTemplateGetter } from './prompt-templates.js';
 import * as DeckMechanics from './deck.js';
 import { filterVisibleTurns, assemble, formatPrompt, type SceneContext } from './visibility.js';
 import { trimToFit } from './trimmer.js';
@@ -70,6 +71,11 @@ export interface OrchestratorOptions {
   makeId?: () => string;
   /** Constructor-level progress hook; per-call override supported. */
   onPipelineEvent?: ((line: string) => void) | null;
+  /**
+   * Prompt template overrides by stage key; null/absent = shipped defaults.
+   * Typically a snapshot getter built from PromptTemplateStorage.load().
+   */
+  getTemplates?: PromptTemplateGetter | null;
 }
 
 export class PipelineOrchestrator {
@@ -77,6 +83,11 @@ export class PipelineOrchestrator {
 
   constructor(private readonly options: OrchestratorOptions) {
     this.stores = options.stores;
+  }
+
+  /** Stage-key -> template override snapshot; never null as a function. */
+  private get templateGetter(): PromptTemplateGetter {
+    return this.options.getTemplates ?? (() => null);
   }
 
   async executeTurn(input: ExecuteTurnInput): Promise<TurnVariant> {
@@ -129,7 +140,12 @@ export class PipelineOrchestrator {
     emitProgress('router: deciding checks…');
     let routerDecision: Awaited<ReturnType<typeof RouterStage.execute>> | null = null;
     try {
-      routerDecision = await RouterStage.execute(this.options.aiCaller, playerInput, campaign.sceneState);
+      routerDecision = await RouterStage.execute(
+        this.options.aiCaller,
+        playerInput,
+        campaign.sceneState,
+        this.templateGetter,
+      );
     } catch (t) {
       recordEvent(`router: fallback used (${errorMessage(t)})`);
     }
@@ -154,6 +170,7 @@ export class PipelineOrchestrator {
         routerDecision,
         mechanicResults,
         retrievedMemories: preRetrieval,
+        getTemplate: this.templateGetter,
       });
     } catch (t) {
       recordEvent(`plot: fallback used (${errorMessage(t)})`);
@@ -194,7 +211,12 @@ export class PipelineOrchestrator {
           const npc = await this.stores.loadNpc(campaignId, npcId);
           if (!npc) continue;
           const witnessed = witnessedTurnsFor(npcId, allTurns);
-          const updated = await AgencyStage.updateNpcAgency(this.options.aiCaller, npc, witnessed);
+          const updated = await AgencyStage.updateNpcAgency(
+            this.options.aiCaller,
+            npc,
+            witnessed,
+            this.templateGetter,
+          );
           await this.stores.saveNpc(campaignId, { ...npc, agency: updated });
         } catch (t) {
           recordEvent(`agency: update failed for ${npcId} (${errorMessage(t)})`);
@@ -242,12 +264,18 @@ export class PipelineOrchestrator {
     let interrupted = false;
     emitProgress('scene: streaming…');
     try {
-      const stream = executeScene(this.options.aiCaller, context, undefined, {
-        onReasoningChunk: (delta) => {
-          reasoningParts.push(delta);
-          onReasoningChunk?.(delta);
+      const stream = executeScene(
+        this.options.aiCaller,
+        context,
+        undefined,
+        {
+          onReasoningChunk: (delta) => {
+            reasoningParts.push(delta);
+            onReasoningChunk?.(delta);
+          },
         },
-      });
+        this.templateGetter,
+      );
       for await (const chunk of stream) {
         proseParts.push(chunk);
         onChunk?.(chunk);
@@ -274,6 +302,7 @@ export class PipelineOrchestrator {
         synopsis: plotOutput.synopsis,
         sceneOutput,
         turnIndex,
+        getTemplate: this.templateGetter,
       });
     } catch (t) {
       recordEvent(`memory: extraction failed (${errorMessage(t)})`);
@@ -293,17 +322,24 @@ export class PipelineOrchestrator {
     // ---- 9. Tracker updates + scene state -------------------------------
     for (const update of plotOutput.tracker_updates) {
       try {
-        const npc = await this.stores.loadNpc(campaignId, update.npc);
-        if (!npc) {
+        const target = await resolveTrackerTarget(
+          (npcId) => this.stores.loadNpc(campaignId, npcId),
+          update.npc,
+          presentNpcs,
+        );
+        if (!target) {
           recordEvent(`tracker: update skipped, unknown npc ${update.npc}`);
           continue;
         }
+        const npc = target.npc;
         const current = npc.trackers[update.key] ?? 0;
         const merged = { ...npc.trackers };
         merged[update.key] = current + update.delta;
         await this.stores.saveNpc(campaignId, { ...npc, trackers: merged });
         const sign = update.delta >= 0 ? '+' : '';
-        recordEvent(`tracker: ${update.key} ${sign}${update.delta} applied to ${update.npc}`);
+        const label =
+          target.how === 'name' ? `${npc.name} (resolved by name)` : npc.id;
+        recordEvent(`tracker: ${update.key} ${sign}${update.delta} applied to ${label}`);
       } catch (t) {
         recordEvent(`tracker: update failed for ${update.npc} (${errorMessage(t)})`);
       }
@@ -374,6 +410,35 @@ export class PipelineOrchestrator {
     // ---- 11. Return ------------------------------------------------------
     return variant;
   }
+}
+
+/**
+ * Resolve a tracker-update key to a concrete NPC. The plot model is told to
+ * emit npc ids but sometimes emits the NAME instead; accept both:
+ *  (a) exact id, (b) exact present-NPC name case-insensitive, (c) trimmed
+ *  name containment. Null when nothing resolves (caller logs the skip).
+ */
+export async function resolveTrackerTarget(
+  loadNpc: (npcId: string) => Promise<Npc | null>,
+  key: string,
+  presentNpcs: Npc[],
+): Promise<{ npc: Npc; how: 'id' | 'name' } | null> {
+  if (key.length === 0) return null;
+  const byId = await loadNpc(key);
+  if (byId) return { npc: byId, how: 'id' };
+
+  const needle = key.trim().toLowerCase();
+  if (needle.length === 0) return null;
+  let contained: Npc | null = null;
+  for (const npc of presentNpcs) {
+    const name = npc.name.trim().toLowerCase();
+    if (name.length === 0) continue;
+    if (name === needle) return { npc, how: 'name' };
+    if (contained === null && (name.includes(needle) || needle.includes(name))) {
+      contained = npc;
+    }
+  }
+  return contained ? { npc: contained, how: 'name' } : null;
 }
 
 /**

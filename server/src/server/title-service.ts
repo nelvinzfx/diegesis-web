@@ -6,14 +6,45 @@
  */
 
 import type { AiCaller } from '../engine/ai-caller.js';
+import { applyTemplate, resolvePrompt, type PromptTemplateGetter } from '../engine/prompt-templates.js';
 import type { AppSettings, Campaign, Turn } from '../shared/types.js';
 
 export const MAX_TITLE_CHARS = 40;
 
-const TITLE_SYSTEM =
+export const DEFAULT_TITLE_SYSTEM =
   'You title stories. Reply with ONLY the title: 2 to 5 words, at most ' +
-  `${MAX_TITLE_CHARS} characters, written in the story's language. ` +
+  "{{maxChars}} characters, written in the story's language. " +
   'No quotes, no trailing punctuation, no explanation.';
+
+/**
+ * Title prompts with template override support. System variables:
+ * {{maxChars}}, {{language}}, {{playerInput}}, {{synopsis}}. The user prompt
+ * is fixed (it is pure data assembly), but {{maxChars}} there is interpolated.
+ */
+export function resolveTitleSystemPrompt(
+  getTemplate: PromptTemplateGetter | null | undefined,
+  language: string,
+): string {
+  return resolvePrompt(getTemplate, 'title', DEFAULT_TITLE_SYSTEM, {
+    maxChars: String(MAX_TITLE_CHARS),
+    language,
+    playerInput: '',
+    synopsis: '',
+  });
+}
+
+export function buildTitleUserPrompt(input: {
+  language: string;
+  playerInput: string;
+  synopsis: string;
+}): string {
+  return (
+    `Language: ${input.language}\n` +
+    `Player action: ${input.playerInput}\n` +
+    `Scene synopsis: ${input.synopsis}\n` +
+    `Title (max ${MAX_TITLE_CHARS} chars):`
+  );
+}
 
 export function isAutoTitleDue(campaign: Campaign): boolean {
   const t = campaign.title.trim();
@@ -45,6 +76,7 @@ export async function maybeGenerateTitle(args: {
   settings: AppSettings;
   campaign: Campaign;
   turn: Turn | null;
+  getTemplate?: PromptTemplateGetter | null;
 }): Promise<string | null> {
   if (!isAutoTitleDue(args.campaign)) return null;
   if (args.turn === null || args.turn.variants.length === 0) return null;
@@ -52,15 +84,15 @@ export async function maybeGenerateTitle(args: {
   const playerInput = args.turn.playerInput.slice(0, 600);
   const synopsis = (variant.synopsis ?? '').slice(0, 600);
   const language = args.settings.language?.trim() || 'English';
-  const userPrompt =
-    `Language: ${language}\n` +
-    `Player action: ${playerInput}\n` +
-    `Scene synopsis: ${synopsis}\n` +
-    `Title (max ${MAX_TITLE_CHARS} chars):`;
+  const userPrompt = buildTitleUserPrompt({ language, playerInput, synopsis });
+  const systemPrompt = applyTemplate(
+    resolveTitleSystemPrompt(args.getTemplate ?? null, language),
+    { playerInput, synopsis },
+  );
 
   let raw = '';
   try {
-    for await (const chunk of args.caller.streamThink(TITLE_SYSTEM, userPrompt)) {
+    for await (const chunk of args.caller.streamThink(systemPrompt, userPrompt)) {
       raw += chunk;
     }
   } catch {

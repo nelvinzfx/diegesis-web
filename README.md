@@ -21,15 +21,29 @@ docs/     architecture, scope, pipeline, storage, ui-theme, workflow
 The browser talks only to our backend. AI provider keys live in
 `server/.env` and never reach the client.
 
+## Features
+
+Multi-stage pipeline (router / deck mechanics / plot / NPC agency / scene /
+memory extraction), visibility-filtered context, streaming prose with
+reasoning taps, NPC manager with character-card import (JSON / PNG),
+memory browser, session planning, auto titles, per-stage prompt template
+overrides with a live exact-request preview, BYOK settings (OpenAI-compatible
++ Anthropic).
+
 ## Quickstart
 
 ```bash
 npm install          # installs both workspaces
-cp server/.env.example server/.env   # fill in your keys (BYOK)
+cp server/.env.example server/.env   # optional bootstrap: OPENAI_BASE_URL,
+                                     # OPENAI_API_KEY, ANTHROPIC_API_KEY, PORT
 npm run dev          # server on :8920, web on :8921 (vite proxies /api)
 ```
 
 Open http://localhost:8921. Health check: http://localhost:8920/api/health
+
+Keys can also be entered later in Settings (stored in `server/data/settings.json`,
+never sent to the browser). Prompt templates are editable in the Prompts view;
+overrides live in `server/data/prompt-templates.json`.
 
 ## Scripts
 

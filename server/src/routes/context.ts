@@ -17,10 +17,14 @@ export interface RouteContext {
   effectiveSettings: () => Promise<AppSettings>;
   /** The singleton base caller; routes scope it per-request via withSignal. */
   aiCaller: () => Promise<AiCaller>;
+  /**
+   * Builds a pipeline orchestrator with a fresh prompt-template snapshot
+   * (async so overrides are read per request, no ambient singletons).
+   */
   createOrchestrator: (
     caller: AiCaller,
     options: { contextWindowTokens?: number; writeMaxTokens?: number },
-  ) => PipelineOrchestrator;
+  ) => Promise<PipelineOrchestrator>;
 }
 
 /**

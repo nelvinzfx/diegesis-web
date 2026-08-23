@@ -4,6 +4,7 @@
  */
 
 import type { AiCaller } from '../ai-caller.js';
+import { resolvePrompt, type PromptTemplateGetter } from '../prompt-templates.js';
 import type { MechanicResult, MemoryEntry, PlotOutput, RouterDecision, TrackerUpdate } from '../../shared/types.js';
 import { arrayOrEmpty, boolOrDefault, asRecord, optString, requireString } from './decode.js';
 
@@ -22,15 +23,13 @@ export const plotFallback: PlotOutput = {
   tracker_updates: [],
 };
 
-function systemPrompt(sessionPlan: string, recentSummary: string): string {
-  const storySoFar = recentSummary.length > 0 ? recentSummary : 'Campaign just started.';
-  return `You are the plot engine of a tabletop campaign. You decide WHAT happens, never how it is told.
+export const DEFAULT_SYSTEM_PROMPT = `You are the plot engine of a tabletop campaign. You decide WHAT happens, never how it is told.
 
 Session plan (the arc to follow):
-${sessionPlan}
+{{sessionPlan}}
 
 Story so far (compressed):
-${storySoFar}
+{{storySoFar}}
 
 Rules:
 - Advance the arc. Do not stall, do not repeat beats.
@@ -38,9 +37,24 @@ Rules:
 - If mechanic results are provided, the synopsis MUST honor their tiers exactly.
 - Nominate which NPCs are physically present. NPCs not listed leave the scene.
 - Reply with JSON only.`;
+
+/**
+ * System prompt with template override support. Variables:
+ * {{sessionPlan}}, {{storySoFar}}.
+ */
+export function resolveSystemPrompt(
+  getTemplate: PromptTemplateGetter | null | undefined,
+  sessionPlan: string,
+  recentSummary: string,
+): string {
+  const storySoFar = recentSummary.length > 0 ? recentSummary : 'Campaign just started.';
+  return resolvePrompt(getTemplate, 'plot', DEFAULT_SYSTEM_PROMPT, {
+    sessionPlan,
+    storySoFar,
+  });
 }
 
-function userPayload(
+export function buildUserPayload(
   playerInput: string,
   mechanicResults: MechanicResult[],
   retrievedMemories: MemoryEntry[],
@@ -108,11 +122,12 @@ export async function execute(
     routerDecision: RouterDecision | null;
     mechanicResults: MechanicResult[];
     retrievedMemories: MemoryEntry[];
+    getTemplate?: PromptTemplateGetter | null;
   },
 ): Promise<PlotOutput> {
   return aiCaller.generateStructured(
-    systemPrompt(input.sessionPlan, input.recentSummary),
-    userPayload(input.playerInput, input.mechanicResults, input.retrievedMemories),
+    resolveSystemPrompt(input.getTemplate ?? null, input.sessionPlan, input.recentSummary),
+    buildUserPayload(input.playerInput, input.mechanicResults, input.retrievedMemories),
     decodePlotOutput,
     plotFallback,
   );

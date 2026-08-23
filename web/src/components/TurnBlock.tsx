@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 
 import { cn } from '../lib/cn';
+import { formatInline } from '../lib/markdown-lite';
 import type { Turn, TurnVariant } from '../lib/types';
 import { useActiveCampaign } from '../state/ActiveCampaignContext';
 import { IconActionButton } from './common';
@@ -157,7 +158,7 @@ function StaticProse({ text, interrupted }: { text: string; interrupted: boolean
     <>
       {paragraphs.map((p, i) => (
         <p key={i} className="whitespace-pre-wrap">
-          {p}
+          {formatInline(p)}
         </p>
       ))}
       {interrupted && (
@@ -177,12 +178,12 @@ function StreamingProse({ text }: { text: string }): ReactNode {
       {paragraphs.map((p, i) =>
         i === last ? (
           <p key={i} className="whitespace-pre-wrap">
-            {p}
+            {formatInline(p)}
             <span className="dg-caret" aria-hidden="true" />
           </p>
         ) : (
           <p key={i} className="whitespace-pre-wrap">
-            {p}
+            {formatInline(p)}
           </p>
         ),
       )}

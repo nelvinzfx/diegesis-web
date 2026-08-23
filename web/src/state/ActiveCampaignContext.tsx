@@ -32,6 +32,7 @@ export type ViewId =
   | 'story'
   | 'npcs'
   | 'memories'
+  | 'prompts'
   | 'settings'
   | 'campaign-new'
   | 'campaign-edit';

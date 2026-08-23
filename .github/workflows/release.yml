@@ -1,0 +1,59 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag (e.g. v1.0.0)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck server
+        run: npm run typecheck -w @diegesis/server
+
+      - name: Typecheck web
+        run: npm run typecheck -w @diegesis/web
+
+      - name: Test server
+        run: npm run test -w @diegesis/server
+
+      - name: Test web
+        run: npm run test -w @diegesis/web
+
+      - name: Build web
+        run: npm run build -w @diegesis/web
+
+      - name: Package
+        run: |
+          TAG="${{ inputs.tag }}"
+          cd web/dist
+          zip -r "../../diegesis-web-${TAG}.zip" .
+          cd ../..
+          sha256sum "diegesis-web-${TAG}.zip" > SHA256SUMS
+
+      - name: Create release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ inputs.tag }}"
+          gh release create "$TAG" \
+            --generate-notes \
+            "diegesis-web-${TAG}.zip" \
+            SHA256SUMS

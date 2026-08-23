@@ -87,7 +87,7 @@ export function registerTurnRoutes(router: Router, ctx: RouteContext): void {
 
       sseInit(res);
       const caller = scopeToRequest(await ctx.aiCaller(), controller.signal);
-      const orchestrator = ctx.createOrchestrator(caller, {
+      const orchestrator = await ctx.createOrchestrator(caller, {
         contextWindowTokens: settings.contextWindowTokens,
         writeMaxTokens: settings.writeMaxTokens,
       });
@@ -107,11 +107,13 @@ export function registerTurnRoutes(router: Router, ctx: RouteContext): void {
         let campaignTitle: string | undefined;
         const storedCampaign = await ctx.hub.campaigns.get(campaignId);
         if (storedCampaign) {
+          const titleOverrides = await ctx.hub.prompts.load();
           const title = await maybeGenerateTitle({
             caller,
             settings,
             campaign: storedCampaign,
             turn,
+            getTemplate: (key) => titleOverrides[key] ?? null,
           });
           if (title !== null) {
             await ctx.hub.campaigns.save({ ...storedCampaign, title, updatedAt: Date.now() });

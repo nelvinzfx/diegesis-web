@@ -4,10 +4,11 @@
  */
 
 import type { AiCaller } from '../ai-caller.js';
+import { resolvePrompt, type PromptTemplateGetter } from '../prompt-templates.js';
 import type { Npc, NpcAgency, Turn } from '../../shared/types.js';
 import { asRecord, requireString } from './decode.js';
 
-const SYSTEM_PROMPT = `You maintain the inner life of an NPC. Given what THIS NPC has witnessed (below) and their current goal, produce their updated immediate goal and emotional stance.
+export const DEFAULT_SYSTEM_PROMPT = `You maintain the inner life of an NPC. Given what THIS NPC has witnessed (below) and their current goal, produce their updated immediate goal and emotional stance.
 
 Reply with JSON only:
 {
@@ -16,7 +17,28 @@ Reply with JSON only:
   "will_act_on": "what they plan to do next, 1 sentence"
 }`;
 
-function userPrompt(npc: Npc, witnessedContext: string): string {
+/**
+ * System prompt with template override support. Variables: {{npcName}},
+ * {{npcDescription}}, {{personality}}, {{goal}}, {{stance}}, {{willActOn}},
+ * {{witnessed}}.
+ */
+export function resolveSystemPrompt(
+  getTemplate: PromptTemplateGetter | null | undefined,
+  npc: Npc,
+  witnessedContext: string,
+): string {
+  return resolvePrompt(getTemplate, 'agency', DEFAULT_SYSTEM_PROMPT, {
+    npcName: npc.name,
+    npcDescription: npc.description,
+    personality: npc.personality,
+    goal: npc.agency.goal.length > 0 ? npc.agency.goal : 'none set',
+    stance: npc.agency.stance.length > 0 ? npc.agency.stance : 'neutral',
+    willActOn: npc.agency.will_act_on.length > 0 ? npc.agency.will_act_on : 'nothing planned',
+    witnessed: witnessedContext,
+  });
+}
+
+export function buildUserPrompt(npc: Npc, witnessedContext: string): string {
   return `## NPC: ${npc.name}
 ${npc.description}
 
@@ -52,7 +74,12 @@ export function decodeAgencyUpdate(raw: string): AgencyUpdate {
  * Update agency for a single NPC based on their witnessed turns.
  * Returns the updated NpcAgency, or unchanged if generation fails.
  */
-export async function updateNpcAgency(aiCaller: AiCaller, npc: Npc, witnessedTurns: Turn[]): Promise<NpcAgency> {
+export async function updateNpcAgency(
+  aiCaller: AiCaller,
+  npc: Npc,
+  witnessedTurns: Turn[],
+  getTemplate?: PromptTemplateGetter | null,
+): Promise<NpcAgency> {
   const witnessedContext = buildWitnessedContext(witnessedTurns);
 
   // Keep current agency if update fails.
@@ -63,8 +90,8 @@ export async function updateNpcAgency(aiCaller: AiCaller, npc: Npc, witnessedTur
   };
 
   const update = await aiCaller.generateStructured(
-    SYSTEM_PROMPT,
-    userPrompt(npc, witnessedContext),
+    resolveSystemPrompt(getTemplate, npc, witnessedContext),
+    buildUserPrompt(npc, witnessedContext),
     decodeAgencyUpdate,
     fallback,
   );

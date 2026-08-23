@@ -1,6 +1,6 @@
 {
   "name": "diegesis-web",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "description": "Diegesis: GM campaign narrative engine for tabletop-style roleplay (web client + server). Engine concept and pipeline ported from the nelvinzfx/diegesis Android app.",
   "license": "AGPL-3.0",

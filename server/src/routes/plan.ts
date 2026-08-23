@@ -1,3 +1,23 @@
+/** Normalizes the optional inline-edit fields for template interpolation. */
+function planFieldValues(input: { title?: unknown; premise?: unknown; playerPersona?: unknown }): {
+  title: string;
+  premise: string;
+  playerPersona: string;
+} {
+  return {
+    title:
+      typeof input.title === 'string' && input.title.trim().length > 0 ? input.title.trim() : 'Untitled',
+    premise:
+      typeof input.premise === 'string' && input.premise.trim().length > 0
+        ? input.premise.trim()
+        : '(no premise given)',
+    playerPersona:
+      typeof input.playerPersona === 'string' && input.playerPersona.trim().length > 0
+        ? input.playerPersona.trim()
+        : '(unspecified)',
+  };
+}
+
 /**
  * Session-plan generation. Streams prose + reasoning over SSE from the THINK
  * model and persists the result into campaign.sessionPlan (partial prose is
@@ -8,10 +28,11 @@
  */
 
 import type { Router } from 'express';
+import { resolvePrompt, type PromptTemplateGetter } from '../engine/prompt-templates.js';
 import { param, scopeToRequest, wrap, type RouteContext } from './context.js';
 import { sseEnd, sseInit, sseSend } from './sse.js';
 
-const PLAN_SYSTEM_PROMPT = `You are a session-planning assistant for a tabletop RPG campaign.
+export const DEFAULT_PLAN_SYSTEM_PROMPT = `You are a session-planning assistant for a tabletop RPG campaign.
 
 Draft a concise session plan in markdown with these sections:
 - Premise (one short paragraph)
@@ -21,7 +42,18 @@ Draft a concise session plan in markdown with these sections:
 
 Output markdown only — no meta commentary.`;
 
-function planUserPrompt(input: { title?: unknown; premise?: unknown; playerPersona?: unknown }): string {
+/**
+ * System prompt with template override support. Variables:
+ * {{title}}, {{premise}}, {{playerPersona}}.
+ */
+export function resolvePlanSystemPrompt(
+  getTemplate: PromptTemplateGetter | null | undefined,
+  values: { title: string; premise: string; playerPersona: string },
+): string {
+  return resolvePrompt(getTemplate, 'session-plan', DEFAULT_PLAN_SYSTEM_PROMPT, values);
+}
+
+export function planUserPrompt(input: { title?: unknown; premise?: unknown; playerPersona?: unknown }): string {
   const title = typeof input.title === 'string' && input.title.trim().length > 0 ? input.title.trim() : 'Untitled';
   const premise =
     typeof input.premise === 'string' && input.premise.trim().length > 0 ? input.premise.trim() : '(no premise given)';
@@ -67,7 +99,12 @@ export function registerPlanRoute(router: Router, ctx: RouteContext): void {
 
       const parts: string[] = [];
       try {
-        const stream = caller.streamThink(PLAN_SYSTEM_PROMPT, planUserPrompt(body), {
+        const overrides = await ctx.hub.prompts.load();
+        const systemPrompt = resolvePlanSystemPrompt(
+          (key) => overrides[key] ?? null,
+          planFieldValues(body),
+        );
+        const stream = caller.streamThink(systemPrompt, planUserPrompt(body), {
           onReasoningChunk: (text) => sseSend(res, 'reasoning', { text }),
         });
         for await (const chunk of stream) {
