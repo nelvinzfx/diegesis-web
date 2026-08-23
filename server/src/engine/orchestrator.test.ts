@@ -137,6 +137,9 @@ function memoryStores(): OrchestratorStores {
     async loadNpc(_id, npcId) {
       return npcs.get(npcId) ?? null;
     },
+    async listNpcs() {
+      return [...npcs.values()];
+    },
     async saveNpc(_id, npc) {
       npcs.set(npc.id, JSON.parse(JSON.stringify(npc)) as Npc);
     },
@@ -300,6 +303,41 @@ describe('PipelineOrchestrator', () => {
     expect(saved!.playerInput).toBe('grab the rope');
     expect(saved!.variants).toHaveLength(1);
     expect(saved!.variants[0].sceneOutput).toBe('You fall.');
+  });
+
+  it('resolves plot present_npcs names to real npc ids (regression)', async () => {
+    // Regression: plot writes free-text names; before resolution the variant
+    // recorded them raw, which silently excluded NPCs from every downstream
+    // stage (visibility filter, agency, status board).
+    const { orch } = await seedRig({
+      plotJson:
+        '{"synopsis":"S.","present_npcs":["NPC Alice","ghost"],"scene_change":false,"location":null,"tracker_updates":[]}',
+      proseChunks: ['ok'],
+    });
+    const variant = await orch.executeTurn({
+      campaignId,
+      playerInput: 'go',
+      onChunk: () => {},
+    });
+    expect(variant.presentNpcIds).toEqual(['alice']);
+    expect(variant.stageEvents).toContain('plot: npc "NPC Alice" resolved to NPC alice');
+    expect(variant.stageEvents).toContain('plot: dropped unknown npc "ghost"');
+  });
+
+  it('keeps campaign scene state when plot presence is unresolvable', async () => {
+    const { orch } = await seedRig({
+      plotJson:
+        '{"synopsis":"S.","present_npcs":["ghost"],"scene_change":false,"location":null,"tracker_updates":[]}',
+      proseChunks: ['ok'],
+    });
+    const variant = await orch.executeTurn({
+      campaignId,
+      playerInput: 'go',
+      onChunk: () => {},
+    });
+    expect(variant.presentNpcIds).toEqual(['alice']);
+    expect(variant.stageEvents).toContain('plot: dropped unknown npc "ghost"');
+    expect(variant.stageEvents).toContain('plot: presence unresolved, keeping campaign scene state');
   });
 
   it('stages run in pipeline order', async () => {

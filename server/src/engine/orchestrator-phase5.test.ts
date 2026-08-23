@@ -83,6 +83,9 @@ function memoryStores(): OrchestratorStores {
     async loadNpc(_id, npcId) {
       return npcs.get(npcId) ?? null;
     },
+    async listNpcs() {
+      return [...npcs.values()];
+    },
     async saveNpc(_id, npc) {
       npcs.set(npc.id, JSON.parse(JSON.stringify(npc)) as Npc);
     },

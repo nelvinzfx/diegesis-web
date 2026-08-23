@@ -42,6 +42,7 @@ export interface OrchestratorStores {
   saveTurn(campaignId: string, turn: Turn): Promise<void>;
   appendVariant(campaignId: string, index: number, variant: TurnVariant): Promise<void>;
   loadNpc(campaignId: string, npcId: string): Promise<Npc | null>;
+  listNpcs(campaignId: string): Promise<Npc[]>;
   saveNpc(campaignId: string, npc: Npc): Promise<void>;
   loadMemories(campaignId: string): Promise<MemoryEntry[]>;
   appendMemory(campaignId: string, entry: MemoryEntry): Promise<void>;
@@ -197,10 +198,17 @@ export class PipelineOrchestrator {
     }
     if (!stageEvents.some((event) => event.startsWith('plot:'))) emitProgress('plot: done');
 
-    // present_npcs is authoritative for the new scene; an empty list from a
-    // fallback means "keep the previous scene" rather than "everyone leaves".
-    const presentNpcIds =
-      plotOutput.present_npcs.length > 0 ? plotOutput.present_npcs : campaign.sceneState.presentNpcIds;
+    // present_npcs is authoritative for the new scene, but the model writes
+    // free text (usually names, not ids) — resolve mentions to real ids
+    // before trusting them. Empty (or fully unresolvable) keeps the campaign
+    // scene state rather than emptying the scene.
+    const presentNpcIds = await resolvePlotPresence(
+      plotOutput.present_npcs,
+      campaign.sceneState.presentNpcIds,
+      (npcId) => this.stores.loadNpc(campaignId, npcId),
+      () => this.stores.listNpcs(campaignId),
+      recordEvent,
+    );
 
     // ---- 5. Agency (optional) -------------------------------------------
     const agencyShouldRun =
@@ -459,6 +467,41 @@ export class PipelineOrchestrator {
  *  (a) exact id, (b) exact present-NPC name case-insensitive, (c) trimmed
  *  name containment. Null when nothing resolves (caller logs the skip).
  */
+/**
+ * Plot writes present_npcs as free text (usually names, not ids). Resolve
+ * each mention against the campaign's real NPCs: exact id first, then name
+ * (case-insensitive / containment via resolveTrackerTarget). Unresolvable
+ * mentions are dropped with a stage event; a fully-unresolvable non-empty
+ * list falls back to the campaign scene state instead of emptying the scene.
+ */
+export async function resolvePlotPresence(
+  plotMentions: string[],
+  sceneNpcIds: string[],
+  loadNpc: (npcId: string) => Promise<Npc | null>,
+  listNpcs: () => Promise<Npc[]>,
+  recordEvent: (line: string) => void,
+): Promise<string[]> {
+  if (plotMentions.length === 0) return sceneNpcIds;
+  const all = await listNpcs();
+  const resolved: string[] = [];
+  for (const mention of plotMentions) {
+    const hit = await resolveTrackerTarget(loadNpc, mention, all);
+    if (hit === null) {
+      recordEvent(`plot: dropped unknown npc "${mention}"`);
+      continue;
+    }
+    if (hit.how === 'name') {
+      recordEvent(`plot: npc "${mention}" resolved to ${hit.npc.name}`);
+    }
+    if (!resolved.includes(hit.npc.id)) resolved.push(hit.npc.id);
+  }
+  if (resolved.length === 0) {
+    recordEvent('plot: presence unresolved, keeping campaign scene state');
+    return sceneNpcIds;
+  }
+  return resolved;
+}
+
 export async function resolveTrackerTarget(
   loadNpc: (npcId: string) => Promise<Npc | null>,
   key: string,

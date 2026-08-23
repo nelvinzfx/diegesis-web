@@ -44,6 +44,7 @@ export function createStorageHub(dataRoot: string): StorageHub {
     saveTurn: (id, turn: Turn) => turns.save(id, turn),
     appendVariant: (id, index, variant: TurnVariant) => turns.appendVariant(id, index, variant),
     loadNpc: (campaignId, npcId) => npcs.get(campaignId, npcId),
+    listNpcs: (campaignId) => npcs.list(campaignId),
     saveNpc: (campaignId, npc: Npc) => npcs.save(campaignId, npc),
     loadMemories: (id) => memories.list(id),
     appendMemory: (id, entry: MemoryEntry) => memories.append(id, entry),
