@@ -8,12 +8,14 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
     "@heroui/react": "^3.2.4",
     "@heroui/styles": "^3.2.4",
     "framer-motion": "^13.1.1",
+    "lucide-react": "1.33.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"
   },

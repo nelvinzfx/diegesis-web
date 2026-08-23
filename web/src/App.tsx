@@ -1,96 +1,149 @@
-import { useState } from 'react';
-import { Button } from '@heroui/react';
+/**
+ * Director's booth shell: left nav rail (collapsible), center reading
+ * column, right inspector panel (~340px inline at >=1280px, overlay drawer
+ * below). Below 768px the rail collapses to icon-only.
+ */
 
-interface Swatch {
-  token: string;
-  value: string;
-  className: string;
-}
+import { useEffect, useState, type ReactNode } from 'react';
 
-const surfaces: Swatch[] = [
-  { token: 'bg', value: '#000000', className: 'bg-bg border border-line' },
-  { token: 'surface-1', value: '#0A0A0A', className: 'bg-surface-1' },
-  { token: 'surface-2', value: '#111113', className: 'bg-surface-2' },
-  { token: 'surface-3', value: '#17171A', className: 'bg-surface-3' },
-];
+import { PanelLeft, PanelRight, X } from 'lucide-react';
 
-const lines: Swatch[] = [
-  { token: 'line', value: 'rgba(255,255,255,0.08)', className: 'bg-line' },
-  { token: 'line-strong', value: 'rgba(255,255,255,0.14)', className: 'bg-line-strong' },
-];
+import { cn } from './lib/cn';
+import { useMediaQuery } from './lib/useMediaQuery';
+import { InspectorPanel } from './components/InspectorPanel';
+import { PlaceholderPage } from './components/PlaceholderPage';
+import { RailNav } from './components/RailNav';
+import { StoryScreen } from './components/StoryScreen';
+import { ActiveCampaignProvider, useActiveCampaign } from './state/ActiveCampaignContext';
 
-const texts: Swatch[] = [
-  { token: 'text-hi', value: '#FAFAFA', className: 'bg-text-hi' },
-  { token: 'text-mid', value: '#A1A1AA', className: 'bg-text-mid' },
-  { token: 'text-low', value: '#52525B', className: 'bg-text-low' },
-];
+const RAIL_COLLAPSED_KEY = 'diegesis.railCollapsed';
 
-const accents: Swatch[] = [
-  { token: 'accent-amber (mechanics)', value: '#FFB020', className: 'bg-accent-amber' },
-  { token: 'accent-cyan (NPC)', value: '#22D3EE', className: 'bg-accent-cyan' },
-  { token: 'accent-red (danger)', value: '#F87171', className: 'bg-accent-red' },
-  { token: 'accent-green (success)', value: '#34D399', className: 'bg-accent-green' },
-];
+function Shell(): ReactNode {
+  const { view, streaming } = useActiveCampaign();
+  const wide = useMediaQuery('(min-width: 1280px)');
+  const md = useMediaQuery('(min-width: 768px)');
+  const [railCollapsedStored, setRailCollapsedStored] = useState<boolean>(() => {
+    try {
+      return window.localStorage.getItem(RAIL_COLLAPSED_KEY) === '1';
+    } catch {
+      return false;
+    }
+  });
+  const [inspectorOpen, setInspectorOpen] = useState(false);
 
-function SwatchRow({ swatch }: { swatch: Swatch }) {
-  return (
-    <div className="flex items-center gap-4 py-2.5">
-      <span className={`h-5 w-5 shrink-0 rounded-sm ${swatch.className}`} />
-      <code className="font-mono text-sm text-text-hi">{swatch.token}</code>
-      <span className="ml-auto font-mono text-xs text-text-low">{swatch.value}</span>
-    </div>
-  );
-}
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(RAIL_COLLAPSED_KEY, railCollapsedStored ? '1' : '0');
+    } catch {
+      // storage disabled
+    }
+  }, [railCollapsedStored]);
 
-function TokenGroup({ title, swatches }: { title: string; swatches: Swatch[] }) {
-  return (
-    <section aria-label={title}>
-      <h2 className="pb-2 font-mono text-[11px] tracking-widest uppercase text-text-low">
-        {title}
-      </h2>
-      <div className="divide-y divide-line">
-        {swatches.map((s) => (
-          <SwatchRow key={s.token} swatch={s} />
-        ))}
-      </div>
-    </section>
-  );
-}
-
-export default function App() {
-  const [presses, setPresses] = useState(0);
+  const railCollapsed = !md || railCollapsedStored;
 
   return (
-    <div className="min-h-full bg-bg">
-      <main className="mx-auto max-w-2xl px-6 py-16">
-        <p className="font-mono text-[11px] tracking-widest uppercase text-text-low">
-          phase 0 scaffold
-        </p>
-        <h1 className="pt-2 text-3xl font-semibold tracking-tight text-text-hi">
-          Diegesis
-        </h1>
-        <p className="max-w-md pt-2 text-sm leading-relaxed text-text-mid">
-          GM campaign narrative engine. Five-stage pipeline with a hard
-          visibility invariant: the scene only ever sees what the player
-          character has witnessed.
-        </p>
+    <div className="flex h-full bg-bg">
+      <RailNav collapsed={railCollapsed} onToggleCollapsed={() => setRailCollapsedStored((c) => !c)} />
 
-        <div className="mt-10 rounded-lg bg-surface-1 border border-line p-6 space-y-8">
-          <TokenGroup title="Surfaces" swatches={surfaces} />
-          <TokenGroup title="Hairlines" swatches={lines} />
-          <TokenGroup title="Text" swatches={texts} />
-          <TokenGroup title="Semantic accents" swatches={accents} />
+      {/* Center column */}
+      <main className="relative flex min-w-0 flex-1 flex-col">
+        {/* Floating controls (top-right of the stage area) */}
+        <div className="absolute right-3 top-3 z-20 flex items-center gap-1">
+          {!md && (
+            <button
+              type="button"
+              aria-label="Expand sidebar"
+              onClick={() => setRailCollapsedStored(false)}
+              className="flex h-7 w-7 items-center justify-center rounded-md text-text-low transition-colors hover:bg-surface-2 hover:text-text-mid"
+            >
+              <PanelLeft size={15} />
+            </button>
+          )}
+          {!wide && (
+            <button
+              type="button"
+              aria-label="Toggle inspector"
+              onClick={() => setInspectorOpen((o) => !o)}
+              className={cn(
+                'flex h-7 w-7 items-center justify-center rounded-md transition-colors hover:bg-surface-2',
+                inspectorOpen ? 'bg-surface-2 text-text-hi' : 'text-text-low hover:text-text-mid',
+              )}
+            >
+              <PanelRight size={15} />
+            </button>
+          )}
         </div>
 
-        <footer className="mt-10 flex items-center gap-4">
-          <Button onPress={() => setPresses((n) => n + 1)}>
-            HeroUI button works
-          </Button>
-          <span className="font-mono text-xs text-text-low" role="status">
-            presses: {presses}
-          </span>
-        </footer>
+        {view === 'story' ? <StoryScreen /> : (
+          <PlaceholderPage view={view} />
+        )}
+
+        {/* Inspector as overlay drawer below 1280px */}
+        {!wide && inspectorOpen && (
+          <div className="absolute inset-0 z-30">
+            <button
+              type="button"
+              aria-label="Close inspector overlay"
+              onClick={() => setInspectorOpen(false)}
+              className="absolute inset-0 bg-black/60"
+            />
+            <aside className="absolute inset-y-0 right-0 flex w-[340px] max-w-[92vw] flex-col border-l border-line bg-bg">
+              <DrawerHeader onClose={() => setInspectorOpen(false)} title="Inspector" live={streaming !== null} />
+              <div className="min-h-0 flex-1">
+                <InspectorPanel />
+              </div>
+            </aside>
+          </div>
+        )}
       </main>
+
+      {/* Inspector inline at >=1280px */}
+      {wide && (
+        <aside className="hidden h-full w-[340px] shrink-0 border-l border-line bg-bg xl:flex xl:flex-col">
+          <InlineHeader live={streaming !== null} />
+          <div className="min-h-0 flex-1">
+            <InspectorPanel />
+          </div>
+        </aside>
+      )}
     </div>
   );
 }
+
+function DrawerHeader({ title, onClose, live }: { title: string; onClose: () => void; live: boolean }): ReactNode {
+  return (
+    <div className="flex shrink-0 items-center justify-between px-4 pt-4 pb-2">
+      <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-text-low">
+        {title}
+        {live ? ' · live' : ''}
+      </span>
+      <button
+        type="button"
+        onClick={onClose}
+        aria-label="Close inspector"
+        className="flex h-6 w-6 items-center justify-center rounded-md text-text-low transition-colors hover:bg-surface-2 hover:text-text-hi"
+      >
+        <X size={14} />
+      </button>
+    </div>
+  );
+}
+
+function InlineHeader({ live }: { live: boolean }): ReactNode {
+  return (
+    <div className="shrink-0 px-4 pt-5 pb-1">
+      <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-text-low">
+        Inspector{live ? ' · live' : ''}
+      </span>
+    </div>
+  );
+}
+
+export default function App(): ReactNode {
+  return (
+    <ActiveCampaignProvider>
+      <Shell />
+    </ActiveCampaignProvider>
+  );
+}
+

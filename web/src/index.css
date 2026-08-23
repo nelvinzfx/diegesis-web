@@ -56,6 +56,47 @@ body {
   background-color: var(--dg-bg);
 }
 
+/* ---- Story screen reading column ------------------------------------ */
+
+/* Book-page narrative blocks: generous leading, calm paragraph rhythm. */
+.dg-prose {
+  font-size: 0.9375rem; /* 15px */
+  line-height: 1.85;
+  letter-spacing: 0.005em;
+  color: var(--dg-text-hi);
+}
+
+.dg-prose p {
+  margin-bottom: 1.1em;
+}
+
+.dg-prose p:last-child {
+  margin-bottom: 0;
+}
+
+/* Streaming caret at the tail of live prose. No typing dots anywhere. */
+.dg-caret {
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  margin-left: 2px;
+  vertical-align: text-bottom;
+  background-color: var(--dg-text-mid);
+  animation: dg-caret-blink 1s steps(1) infinite;
+}
+
+@keyframes dg-caret-blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dg-caret {
+    animation: none;
+  }
+}
+
 /* HeroUI v3 dark theme remapped onto Diegesis tokens (dark-only app).
    No runtime theme switching exists anywhere in this app. */
 [data-theme="dark"] {
