@@ -8,6 +8,33 @@ function collect(): { events: SseEvent[]; parser: ReturnType<typeof createSsePar
   return { events, parser };
 }
 
+describe('sseFetch', () => {
+  it('sends a JSON content-type header when a string body is present', async () => {
+    // Regression: without it express.json skipped the body and every SSE
+    // POST (turns/plan/opening) 400'd — za could not send a single turn.
+    let seenContentType: string | null = null;
+    const original = globalThis.fetch;
+    globalThis.fetch = (async (_url: unknown, init?: RequestInit) => {
+      seenContentType = new Headers(init?.headers).get('content-type');
+      const stream = new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(new TextEncoder().encode('event: done\ndata: {}\n\n'));
+          controller.close();
+        },
+      });
+      return new Response(stream, { status: 200 });
+    }) as typeof fetch;
+    try {
+      const { sseFetch } = await import('./sse');
+      const result = await sseFetch('/x', { method: 'POST', body: '{"a":1}', onEvent: () => {} });
+      expect(seenContentType).toBe('application/json');
+      expect(result.terminal?.event).toBe('done');
+    } finally {
+      globalThis.fetch = original;
+    }
+  });
+});
+
 describe('createSseParser', () => {
   it('parses a well-formed frame', () => {
     const { events, parser } = collect();

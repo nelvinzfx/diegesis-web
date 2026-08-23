@@ -108,7 +108,13 @@ export interface SseFetchResult {
 export async function sseFetch(url: string, options: SseFetchOptions): Promise<SseFetchResult> {
   const response = await fetch(url, {
     method: options.method ?? 'GET',
-    headers: { accept: 'text/event-stream', ...options.headers },
+    headers: {
+      accept: 'text/event-stream',
+      // A JSON string body must say so — without this express.json skips
+      // parsing and routes see an empty body (player_input_required etc.).
+      ...(typeof options.body === 'string' ? { 'content-type': 'application/json' } : {}),
+      ...options.headers,
+    },
     body: options.body,
     signal: options.signal,
   });
