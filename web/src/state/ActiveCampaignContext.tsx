@@ -321,7 +321,11 @@ export function ActiveCampaignProvider({ children }: { children: ReactNode }) {
 
   const runStream = useCallback(
     async (playerInput: string, targetTurnIndex: number | null) => {
-      if (campaignId === null || abortRef.current !== null) return;
+      if (abortRef.current !== null) return;
+      if (campaignId === null) {
+        setStreamError('No campaign selected. Create or switch to one from the rail first.');
+        return;
+      }
       const controller = new AbortController();
       abortRef.current = controller;
       setStreamError(null);
