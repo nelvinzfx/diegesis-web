@@ -6,7 +6,7 @@
 
 import { useEffect, useState, type ReactNode } from 'react';
 
-import { PanelLeft, PanelRight, ScrollText, X } from 'lucide-react';
+import { PanelRight, ScrollText, X } from 'lucide-react';
 
 import { cn } from './lib/cn';
 import { useMediaQuery } from './lib/useMediaQuery';
@@ -26,7 +26,6 @@ function Shell(): ReactNode {
   const { view, streaming, campaign } = useActiveCampaign();
   const wide = useMediaQuery('(min-width: 1280px)');
   const md = useMediaQuery('(min-width: 768px)');
-  const [railOverlayOpen, setRailOverlayOpen] = useState(false);
   const [railCollapsedStored, setRailCollapsedStored] = useState<boolean>(() => {
     try {
       return window.localStorage.getItem(RAIL_COLLAPSED_KEY) === '1';
@@ -64,16 +63,6 @@ function Shell(): ReactNode {
             </span>
           </div>
           <div className="flex shrink-0 items-center gap-1 rounded-lg border border-line bg-surface-1 p-1">
-            {!md && (
-              <button
-                type="button"
-                aria-label="Expand sidebar"
-                onClick={() => setRailOverlayOpen(true)}
-                className="flex h-7 w-7 items-center justify-center rounded-lg text-text-low transition-colors hover:bg-surface-2 hover:text-text-hi"
-              >
-                <PanelLeft size={15} />
-              </button>
-            )}
             {!wide && (
               <button
                 type="button"
@@ -123,24 +112,6 @@ function Shell(): ReactNode {
           </div>
         )}
       </main>
-
-      {/* Mobile rail overlay drawer (<768px) */}
-      {!md && railOverlayOpen && (
-        <div className="fixed inset-0 z-40">
-          <button
-            type="button"
-            aria-label="Close navigation overlay"
-            onClick={() => setRailOverlayOpen(false)}
-            className="absolute inset-0 bg-black/60"
-          />
-          <aside
-            className="absolute inset-y-0 left-0 flex w-[248px] max-w-[86vw] flex-col border-r border-line bg-bg"
-            onClickCapture={() => setRailOverlayOpen(false)}
-          >
-            <RailNav collapsed={false} onToggleCollapsed={() => setRailOverlayOpen(false)} />
-          </aside>
-        </div>
-      )}
 
       {/* Inspector inline at >=1280px */}
       {wide && (
