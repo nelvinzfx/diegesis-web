@@ -41,6 +41,7 @@ Story so far (compressed):
 
 Rules:
 - Advance the arc. Do not stall, do not repeat beats.
+- Plan the world's response, never the player's: the synopsis must not script the player's actions, thoughts, or dialogue. NPCs react; the player acts.
 - Pace the tension deliberately. Judge each beat as "escalate", "hold", or "release": escalate only when the story earns more pressure, never chain escalate after escalate without cause; after a peak, let the beat release and breathe; hold mid-scene to let a moment land. Choose the beat's tension to fit the recent tension history.
 - If mechanic results are provided, the synopsis MUST honor their tiers exactly.
 - Nominate which NPCs are physically present. NPCs not listed leave the scene.
