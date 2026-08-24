@@ -34,6 +34,15 @@ Ground every detail in the material below:
 - The present NPCs: introduce each by name with a short vivid description of what they are doing right now. When an NPC provides an opening message, weave its content into the scene naturally (do not quote it verbatim).
 - Write all narration and dialogue in {{language}}.
 
+## Story material
+- Title: {{title}}
+- Premise: {{premise}}
+- Session plan: {{sessionPlan}}
+- Location: {{location}}
+- Player persona: {{playerPersona}}
+- Present NPCs:
+{{presentNpcs}}
+
 Craft:
 - 3 to 5 paragraphs of immersive prose, second person, present tense.
 - End at a moment that invites the player's first action; never act for the player.
