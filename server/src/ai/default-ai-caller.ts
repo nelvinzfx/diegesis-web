@@ -42,6 +42,7 @@ import {
 import * as ThinkingEffort from '../engine/thinking-effort.js';
 import type { AppSettings } from '../shared/types.js';
 import { streamWithMaaSRetry, withMaaSRetry } from './maas-retry.js';
+import { guardRefusalPrefix, isSceneRetryable } from './refusal-guard.js';
 
 const PROSE_TEMPERATURE = 0.7;
 const MISSING_KEY_PLACEHOLDER = 'missing-key';
@@ -165,14 +166,16 @@ export class DefaultAiCaller implements AiCaller {
   ): AsyncGenerator<string> {
     const s = await this.getSettings();
     if (s.provider === PROVIDER_ANTHROPIC) {
-      yield* this.streamAnthropic(
-        {
-          model: s.writeModel,
-          max_tokens: s.writeMaxTokens,
-          system: systemPrompt,
-          messages: [{ role: 'user', content: userPrompt }],
-        },
-        hooks,
+      yield* guardRefusalPrefix(
+        this.streamAnthropic(
+          {
+            model: s.writeModel,
+            max_tokens: s.writeMaxTokens,
+            system: systemPrompt,
+            messages: [{ role: 'user', content: userPrompt }],
+          },
+          hooks,
+        ),
       );
       return;
     }
@@ -202,15 +205,17 @@ export class DefaultAiCaller implements AiCaller {
       const thinking = customBody.find((b) => b.key === 'thinking')?.value as
         | Anthropic.ThinkingConfigParam
         | undefined;
-      yield* this.streamAnthropic(
-        {
-          model: s.thinkModel,
-          max_tokens: ThinkingEffort.thinkMaxTokensFor(s.thinkingEffort),
-          system: systemPrompt,
-          messages: [{ role: 'user', content: userPrompt }],
-          ...(thinking !== undefined ? { thinking } : {}),
-        },
-        hooks,
+      yield* guardRefusalPrefix(
+        this.streamAnthropic(
+          {
+            model: s.thinkModel,
+            max_tokens: ThinkingEffort.thinkMaxTokensFor(s.thinkingEffort),
+            system: systemPrompt,
+            messages: [{ role: 'user', content: userPrompt }],
+            ...(thinking !== undefined ? { thinking } : {}),
+          },
+          hooks,
+        ),
       );
       return;
     }
@@ -242,22 +247,27 @@ export class DefaultAiCaller implements AiCaller {
     // Tencent Cloud MaaS rejection arrives as HTTP 200 + in-stream SSE error
     // (APIError status undefined, code 400001) → retry the whole call while
     // nothing has been yielded yet; the gateway re-routes per request.
+    // The refusal guard buffers the first ~200 chars before anything yields;
+    // a refusal-shaped prefix throws SceneRefusalError with zero chunks out,
+    // so the wrapper may retry it just like a MaaS rejection.
     yield* streamWithMaaSRetry(async function* () {
-      const stream = (await client.chat.completions.create(
-        body as unknown as OpenAI.Chat.Completions.ChatCompletionCreateParamsStreaming,
-        requestOptions,
-      )) as unknown as AsyncIterable<OpenAI.Chat.Completions.ChatCompletionChunk>;
+      yield* guardRefusalPrefix((async function* () {
+        const stream = (await client.chat.completions.create(
+          body as unknown as OpenAI.Chat.Completions.ChatCompletionCreateParamsStreaming,
+          requestOptions,
+        )) as unknown as AsyncIterable<OpenAI.Chat.Completions.ChatCompletionChunk>;
 
-      for await (const chunk of stream) {
-        const delta = chunk.choices?.[0]?.delta as DeltaWithReasoning | undefined;
-        if (!delta) continue;
-        const reasoning = reasoningOf(delta);
-        if (reasoning !== null) hooks?.onReasoningChunk?.(reasoning);
-        if (typeof delta.content === 'string' && delta.content.length > 0) {
-          yield delta.content;
+        for await (const chunk of stream) {
+          const delta = chunk.choices?.[0]?.delta as DeltaWithReasoning | undefined;
+          if (!delta) continue;
+          const reasoning = reasoningOf(delta);
+          if (reasoning !== null) hooks?.onReasoningChunk?.(reasoning);
+          if (typeof delta.content === 'string' && delta.content.length > 0) {
+            yield delta.content;
+          }
         }
-      }
-    });
+      })());
+    }, isSceneRetryable);
   }
 
   private async *streamAnthropic(

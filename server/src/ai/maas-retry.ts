@@ -76,6 +76,7 @@ function warnMaaSRetry(err: unknown, attempt: number): void {
  */
 export async function* streamWithMaaSRetry<T>(
   factory: () => AsyncGenerator<T>,
+  shouldRetry: (err: unknown) => boolean = isMaaSRejection,
 ): AsyncGenerator<T> {
   for (let attempt = 0; ; attempt++) {
     let yieldedAny = false;
@@ -86,7 +87,7 @@ export async function* streamWithMaaSRetry<T>(
       }
       return;
     } catch (err) {
-      if (yieldedAny || attempt >= MAAS_MAX_RETRIES || !isMaaSRejection(err)) {
+      if (yieldedAny || attempt >= MAAS_MAX_RETRIES || !shouldRetry(err)) {
         throw err;
       }
       warnMaaSRetry(err, attempt + 1);
@@ -95,7 +96,10 @@ export async function* streamWithMaaSRetry<T>(
 }
 
 /** Promise-path twin of streamWithMaaSRetry for non-streaming calls. */
-export async function withMaaSRetry<T>(fn: () => Promise<T>): Promise<T> {
+export async function withMaaSRetry<T>(
+  fn: () => Promise<T>,
+  shouldRetry: (err: unknown) => boolean = isMaaSRejection,
+): Promise<T> {
   for (let attempt = 0; ; attempt++) {
     try {
       return await fn();

@@ -73,10 +73,14 @@ describe('DefaultAiCaller MaaS retry wiring (openai-compat path)', () => {
     expect(createMock.mock.calls.length).toBe(3);
   });
 
-  it('streamProse does not retry after partial content was yielded', async () => {
+  it('streamProse does not retry after content passed the guard window', async () => {
+    // The refusal guard holds the first ~200 chars before anything reaches the
+    // reader; the no-retry rule only binds once text has been flushed. Yield
+    // past the window, then fail: the reader has text, so no retry is legal.
+    const flushed = 'x'.repeat(250);
     createMock.mockImplementation(() =>
       (async function* () {
-        yield contentChunk('part');
+        yield contentChunk(flushed);
         throw maasRejection();
       })(),
     );
@@ -92,7 +96,7 @@ describe('DefaultAiCaller MaaS retry wiring (openai-compat path)', () => {
       caught = err;
     }
 
-    expect(got.join('')).toBe('part');
+    expect(got.join('')).toBe(flushed);
     expect(isMaaSRejection(caught)).toBe(true);
     expect(createMock.mock.calls.length).toBe(1);
   });
