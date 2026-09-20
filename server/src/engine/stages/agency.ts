@@ -11,6 +11,8 @@ import { asRecord, requireString } from './decode.js';
 
 export const DEFAULT_SYSTEM_PROMPT = `You maintain the inner life of an NPC. Given what THIS NPC has witnessed (below) and their current goal, produce their updated immediate goal and emotional stance.
 
+NPCs have their own appetites. If this NPC's nature makes them want the player — sexually, romantically, or otherwise — that desire stays alive in their plans regardless of the current topic, and their will_act_on may act on it directly.
+
 Reply with JSON only:
 {
   "goal": "immediate goal, 1-2 sentences",
