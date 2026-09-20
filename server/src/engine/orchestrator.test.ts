@@ -359,9 +359,10 @@ describe('PipelineOrchestrator', () => {
   it('stages run in pipeline order', async () => {
     const { fake, orch } = await seedRig();
     await orch.executeTurn({ campaignId, playerInput: 'look around' });
-    // Agency is conditional and off here; router precedes plot precedes
+    // Agency runs whenever an NPC is present (alice carries over from the
+    // campaign scene state); router precedes plot precedes agency precedes
     // extraction precedes the status-board rewrite.
-    expect(fake.structuredCalls).toEqual(['router', 'plot', 'extraction', 'tracker']);
+    expect(fake.structuredCalls).toEqual(['router', 'plot', 'agency', 'extraction', 'tracker']);
   });
 
   it('turn indices increment across successive turns', async () => {
@@ -474,7 +475,7 @@ describe('PipelineOrchestrator', () => {
 
   // ---- agency ------------------------------------------------------------
 
-  it('agency runs when the router asks for it', async () => {
+  it('agency updates a present NPC (router flag and plot deltas are irrelevant)', async () => {
     const { fake, stores, orch } = await seedRig({
       routerJson: '{"needs_check":false,"checks":[],"run_agency_update":true,"lore_query":null}',
       plotJson:
@@ -489,8 +490,27 @@ describe('PipelineOrchestrator', () => {
     expect(fake.structuredCalls).toContain('agency');
   });
 
-  it('agency is skipped on a quiet turn', async () => {
+  it('agency runs on an ordinary turn with a present NPC even when nothing else asks for it', async () => {
+    // Router JSON has run_agency_update:false, the plot has no scene change
+    // and no tracker updates; presence alone must refresh agency.
+    const { fake, stores, orch } = await seedRig({
+      plotJson:
+        '{"synopsis":"A shift.","present_npcs":["alice"],"scene_change":false,"location":null,"tracker_updates":[]}',
+    });
+    await orch.executeTurn({ campaignId, playerInput: 'nod' });
+    expect(fake.structuredCalls).toContain('agency');
+    const alice = await stores.loadNpc(campaignId, 'alice');
+    expect(alice!.agency.goal).toBe('g');
+    expect(alice!.agency.stance).toBe('s');
+    expect(alice!.agency.will_act_on).toBe('w');
+  });
+
+  it('agency does not run when the present-NPC set is empty', async () => {
     const { fake, stores, orch } = await seedRig();
+    await stores.saveCampaign({
+      ...baseCampaign(),
+      sceneState: { location: 'The Docks', presentNpcIds: [] },
+    });
     await orch.executeTurn({ campaignId, playerInput: 'nod' });
     expect(fake.structuredCalls).not.toContain('agency');
     const alice = await stores.loadNpc(campaignId, 'alice');
@@ -623,10 +643,13 @@ describe('PipelineOrchestrator', () => {
     expect(saved.stageEvents.some((e) => e.startsWith('plot: fallback used'))).toBe(true);
   });
 
-  it('a clean turn records only the status-board success event', async () => {
+  it('a clean turn records only the agency presence and status-board events', async () => {
     const { orch } = await seedRig();
     const variant = await orch.executeTurn({ campaignId, playerInput: 'look around' });
-    expect(variant.stageEvents).toEqual(['tracker: updated (Day 1, evening, The Docks, 1 npcs)']);
+    expect(variant.stageEvents).toEqual([
+      'agency: run for 1 npc(s)',
+      'tracker: updated (Day 1, evening, The Docks, 1 npcs)',
+    ]);
   });
 
   it('scene failure records an interrupted stage event', async () => {
@@ -642,7 +665,7 @@ describe('PipelineOrchestrator', () => {
     });
     const variant = await orch.executeTurn({ campaignId, playerInput: 'insult alice' });
     expect(variant.stageEvents).toContain('tracker: trust -3 applied to alice');
-    // Agency runs because a tracker update happened; that is recorded too.
+    // Agency runs because alice is present; that is recorded too.
     expect(variant.stageEvents.some((e) => e.startsWith('agency: run'))).toBe(true);
   });
 
@@ -726,6 +749,9 @@ describe('PipelineOrchestrator', () => {
       'router: done',
       'plot: generating turn plan…',
       'plot: done',
+      // Agency now refreshes every turn while an NPC is present.
+      'agency: run for 1 npc(s)',
+      'agency: done',
       'scene: streaming…',
       'memory: extracting…',
       'memory: done',

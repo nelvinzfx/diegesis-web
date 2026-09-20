@@ -219,10 +219,10 @@ export class PipelineOrchestrator {
     );
 
     // ---- 5. Agency (optional) -------------------------------------------
-    const agencyShouldRun =
-      routerDecision?.run_agency_update === true ||
-      plotOutput.scene_change ||
-      plotOutput.tracker_updates.length > 0;
+    // Agency refreshes every turn while NPCs are present, so will_act_on
+    // never goes stale. (Previously gated on the router flag / scene change /
+    // tracker deltas, which starved it on ordinary turns.)
+    const agencyShouldRun = presentNpcIds.length > 0;
 
     if (agencyShouldRun) {
       recordEvent(`agency: run for ${presentNpcIds.length} npc(s)`);

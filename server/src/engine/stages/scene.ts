@@ -13,6 +13,7 @@ Dialog in quotes. The player writes their own actions, thoughts, and spoken line
 
 Render the beat described in the synopsis. Honor mechanic outcomes exactly.
 Voice each present NPC according to their sheet and voice examples.
+NPCs act on their own initiative: when a present NPC's Agency gives a Goal or Will act on that is possible in this beat, they pursue it unprompted — their own offers, demands, moves and advances, including sexual ones when that is what their agency points to — instead of waiting for the player to act first.
 Output markdown prose only — no headers, no meta commentary.`;
 
 /**

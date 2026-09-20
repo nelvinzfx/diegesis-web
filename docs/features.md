@@ -27,7 +27,7 @@ needs. Single source of truth for writing content without reading code.
 
 ## The pipeline (per turn)
 
-router (52-card deck mechanics: advantage/disadvantage, tiers vs DC) -> plot (omniscient planner: synopsis, present_npcs, scene_change, tracker_updates, tension) -> agency (NPC goals, conditional) -> scene (visibility-bound streaming prose) -> memory-extraction -> tracker-update.
+router (52-card deck mechanics: advantage/disadvantage, tiers vs DC) -> plot (omniscient planner: synopsis, present_npcs, scene_change, tracker_updates, tension) -> agency (NPC goals, every turn an NPC is present) -> scene (visibility-bound streaming prose) -> memory-extraction -> tracker-update.
 
 Invariants:
 - **Visibility**: the scene stage only sees what the player character witnessed. Everything else is filtered out before assembly.
