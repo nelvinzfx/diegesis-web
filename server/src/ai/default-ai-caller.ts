@@ -41,6 +41,7 @@ import {
 } from '../engine/ai-caller.js';
 import * as ThinkingEffort from '../engine/thinking-effort.js';
 import type { AppSettings } from '../shared/types.js';
+import { streamWithMaaSRetry, withMaaSRetry } from './maas-retry.js';
 
 const PROSE_TEMPERATURE = 0.7;
 const MISSING_KEY_PLACEHOLDER = 'missing-key';
@@ -143,9 +144,13 @@ export class DefaultAiCaller implements AiCaller {
       ...(temperature !== null ? { temperature } : {}),
       ...extras,
     };
-    const response = await this.openaiClient(s).chat.completions.create(
-      body as unknown as OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming,
-      this.requestOptions(),
+    // Tencent Cloud MaaS rejection (HTTP 400 + code 400001) → retry the
+    // create; the gateway re-routes per request. Anthropic path untouched.
+    const response = await withMaaSRetry(() =>
+      this.openaiClient(s).chat.completions.create(
+        body as unknown as OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming,
+        this.requestOptions(),
+      ),
     );
     const content = response.choices[0]?.message?.content ?? null;
     return typeof content === 'string' && content.length > 0 ? content : null;
@@ -232,20 +237,27 @@ export class DefaultAiCaller implements AiCaller {
     hooks?: StreamHooks,
   ): AsyncGenerator<string> {
     const s = await this.getSettings();
-    const stream = (await this.openaiClient(s).chat.completions.create(
-      body as unknown as OpenAI.Chat.Completions.ChatCompletionCreateParamsStreaming,
-      this.requestOptions(),
-    )) as unknown as AsyncIterable<OpenAI.Chat.Completions.ChatCompletionChunk>;
+    const client = this.openaiClient(s);
+    const requestOptions = this.requestOptions();
+    // Tencent Cloud MaaS rejection arrives as HTTP 200 + in-stream SSE error
+    // (APIError status undefined, code 400001) → retry the whole call while
+    // nothing has been yielded yet; the gateway re-routes per request.
+    yield* streamWithMaaSRetry(async function* () {
+      const stream = (await client.chat.completions.create(
+        body as unknown as OpenAI.Chat.Completions.ChatCompletionCreateParamsStreaming,
+        requestOptions,
+      )) as unknown as AsyncIterable<OpenAI.Chat.Completions.ChatCompletionChunk>;
 
-    for await (const chunk of stream) {
-      const delta = chunk.choices?.[0]?.delta as DeltaWithReasoning | undefined;
-      if (!delta) continue;
-      const reasoning = reasoningOf(delta);
-      if (reasoning !== null) hooks?.onReasoningChunk?.(reasoning);
-      if (typeof delta.content === 'string' && delta.content.length > 0) {
-        yield delta.content;
+      for await (const chunk of stream) {
+        const delta = chunk.choices?.[0]?.delta as DeltaWithReasoning | undefined;
+        if (!delta) continue;
+        const reasoning = reasoningOf(delta);
+        if (reasoning !== null) hooks?.onReasoningChunk?.(reasoning);
+        if (typeof delta.content === 'string' && delta.content.length > 0) {
+          yield delta.content;
+        }
       }
-    }
+    });
   }
 
   private async *streamAnthropic(
