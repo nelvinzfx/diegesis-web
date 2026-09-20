@@ -269,6 +269,7 @@ describe('POST /api/campaigns/:id/turns (SSE)', () => {
         index,
         playerInput: `p${index}`,
         variants: [],
+        activeVariant: 0,
         createdAt: 1,
       });
     }
@@ -279,6 +280,54 @@ describe('POST /api/campaigns/:id/turns (SSE)', () => {
       await fetch(`${base}/api/campaigns/${campaignId}/turns`)
     ).json()) as { turns: Array<{ index: number }> };
     expect(listed.turns.map((t) => t.index)).toEqual([0]);
+  });
+
+  it('PUT /turns/:index persists the activeVariant selection', async () => {
+    const h = await fresh();
+    const port = await h.listen();
+    const base = `http://127.0.0.1:${port}`;
+    const campaignId = await makeCampaign(base);
+    const variantOf = (id: string) => ({
+      id,
+      synopsis: 's',
+      sceneOutput: `prose ${id}`,
+      routerDecision: null,
+      presentNpcIds: [],
+      mechanicResults: [],
+      interrupted: false,
+      timestamp: 0,
+      stageEvents: [],
+      tension: null,
+      reasoning: null,
+    });
+    await h.hub.turns.save(campaignId, {
+      index: 0,
+      playerInput: 'act',
+      variants: [variantOf('v0'), variantOf('v1'), variantOf('v2')],
+      activeVariant: 2,
+      createdAt: 1,
+    });
+
+    // The selection is honored and survives a re-read from disk.
+    const pick = await fetch(`${base}/api/campaigns/${campaignId}/turns/0`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ activeVariant: 1 }),
+    });
+    expect(pick.status).toBe(200);
+    const { turn } = (await pick.json()) as { turn: { activeVariant: number } };
+    expect(turn.activeVariant).toBe(1);
+    expect((await h.hub.turns.get(campaignId, 0))?.activeVariant).toBe(1);
+
+    // Out-of-range and fractional picks are rejected.
+    for (const body of [{ activeVariant: 3 }, { activeVariant: -1 }, { activeVariant: 1.5 }]) {
+      const bad = await fetch(`${base}/api/campaigns/${campaignId}/turns/0`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      expect(bad.status).toBe(400);
+    }
   });
 
   it('PUT /turns/:index edits cue text and variant prose in place', async () => {
@@ -303,12 +352,14 @@ describe('POST /api/campaigns/:id/turns (SSE)', () => {
           reasoning: null,
         },
       ],
+      activeVariant: 0,
       createdAt: 1,
     });
     await h.hub.turns.save(campaignId, {
       index: 1,
       playerInput: 'second action',
       variants: [],
+      activeVariant: 0,
       createdAt: 2,
     });
 

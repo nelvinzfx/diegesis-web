@@ -230,6 +230,7 @@ export function registerOpeningRoutes(router: Router, ctx: RouteContext): void {
         index: 0,
         playerInput: '',
         variants: [variant],
+        activeVariant: 0,
         createdAt: Date.now(),
       };
       await ctx.hub.turns.save(campaign.id, turn);

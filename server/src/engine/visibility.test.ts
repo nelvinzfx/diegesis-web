@@ -12,6 +12,7 @@ function turn(
   return {
     index,
     playerInput: input,
+    activeVariant: 0,
     createdAt: 0,
     variants: [
       {
@@ -122,7 +123,7 @@ describe('VisibilityContextAssembler', () => {
 
   it('turns with no variants are excluded', () => {
     const turns = [
-      { index: 0, playerInput: 'unfinished', variants: [], createdAt: 0 },
+      { index: 0, playerInput: 'unfinished', variants: [], activeVariant: 0, createdAt: 0 },
       turn(1, 'meet alice', ['alice'], 'ALICE_SCENE'),
     ];
     const context = assemble({ presentNpcIds: ['alice'], allTurns: turns });
@@ -166,19 +167,26 @@ describe('VisibilityContextAssembler', () => {
     expect(outputs).not.toContain('C');
   });
 
-  it('visibility is judged on the latest variant of a past turn', () => {
-    const turnWithReroll: Turn = {
+  it('visibility is judged on the selected variant of a past turn', () => {
+    const makeTurn = (activeVariant: number): Turn => ({
       index: 0,
       playerInput: 'rerolled turn',
+      activeVariant,
       createdAt: 0,
       variants: [
         variantOf({ id: 'old', sceneOutput: 'OLD', presentNpcIds: ['bob'] }),
         variantOf({ id: 'new', sceneOutput: 'NEW', presentNpcIds: ['alice'] }),
       ],
-    };
-    const context = assemble({ presentNpcIds: ['alice'], allTurns: [turnWithReroll] });
-    expect(context.filteredHistory).toHaveLength(1);
-    expect(context.filteredHistory[0].sceneOutput).toBe('NEW');
+    });
+    // Regenerate lands the selection on the newest variant...
+    const latest = assemble({ presentNpcIds: ['alice'], allTurns: [makeTurn(1)] });
+    expect(latest.filteredHistory).toHaveLength(1);
+    expect(latest.filteredHistory[0].sceneOutput).toBe('NEW');
+    // ...and the user's persisted pick is just as canonical for the engine.
+    const rewound = assemble({ presentNpcIds: ['alice'], allTurns: [makeTurn(0)] });
+    expect(rewound.filteredHistory).toHaveLength(0);
+    const rewoundBob = assemble({ presentNpcIds: ['bob'], allTurns: [makeTurn(0)] });
+    expect(rewoundBob.filteredHistory[0].sceneOutput).toBe('OLD');
   });
 
   // ---- solo scenes -----------------------------------------------------

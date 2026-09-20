@@ -6,6 +6,7 @@ function turnOf(index: number, input: string, output: string): Turn {
   return {
     index,
     playerInput: input,
+    activeVariant: 0,
     createdAt: 0,
     variants: [
       {
@@ -86,7 +87,7 @@ describe('ContextWindowTrimmer', () => {
   });
 
   it('turn without variants counts only its input', () => {
-    const bare: Turn = { index: 0, playerInput: 'x'.repeat(400), variants: [], createdAt: 0 };
+    const bare: Turn = { index: 0, playerInput: 'x'.repeat(400), variants: [], activeVariant: 0, createdAt: 0 };
     const newest = turnOfSize(1, 400);
     // Budget of 250 tokens = 1000 chars fits both (400 + 400 chars).
     const trimmed = trimToFit([bare, newest], 250);

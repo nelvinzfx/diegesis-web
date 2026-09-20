@@ -12,6 +12,7 @@
  */
 
 import type { MechanicResult, MemoryEntry, Npc, Turn } from '../shared/types.js';
+import { activeVariantOf } from '../shared/types.js';
 
 export interface NpcPayload {
   id: string;
@@ -58,7 +59,7 @@ export function assemble(input: AssembleInput): SceneContext {
 
   const history: HistoryEntry[] = [];
   for (const turn of visibleTurns) {
-    const variant = turn.variants[turn.variants.length - 1];
+    const variant = activeVariantOf(turn);
     if (!variant) continue;
     history.push({ playerInput: turn.playerInput, sceneOutput: variant.sceneOutput });
   }
@@ -91,8 +92,8 @@ export function assemble(input: AssembleInput): SceneContext {
  * A turn is visible if:
  *  - presentNpcIds is empty (solo player scene), OR
  *  - at least one currently present NPC was also present in that past turn
- *    (judged on the turn's LATEST variant — regenerate rewrites who was
- *    present, and the newest variant is the canonical branch).
+ *    (judged on the turn's SELECTED variant — the persisted activeVariant
+ *    pick is the canonical branch, and regenerate moves the selection).
  *
  * Exported so the orchestrator can apply context-window trimming between
  * visibility filtering and assembly (the trimmer must only ever see turns
@@ -104,7 +105,7 @@ export function filterVisibleTurns(allTurns: Turn[], presentNpcIds: string[]): T
 
   const present = new Set(presentNpcIds);
   return allTurns.filter((turn) => {
-    const variant = turn.variants[turn.variants.length - 1];
+    const variant = activeVariantOf(turn);
     if (!variant) return false;
     return variant.presentNpcIds.some((id) => present.has(id));
   });

@@ -78,6 +78,8 @@ export interface Turn {
   index: number;
   playerInput: string;
   variants: TurnVariant[];
+  /** Persisted canonical-variant selection; drives display AND engine context. */
+  activeVariant: number;
   createdAt: number;
 }
 

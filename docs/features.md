@@ -19,7 +19,7 @@ needs. Single source of truth for writing content without reading code.
 - `trackers` — numeric key-value stats (e.g. trust: 3), updated by memory-extraction (name-resolved to id)
 - `sourceCard` — embedded PNG when imported from a card file
 
-**Turn / TurnVariant** — a turn = playerInput + variants[]. Turn 0 = the opening (playerInput ""). Variant carries: `synopsis`, `sceneOutput`, `routerDecision`, `presentNpcIds` (recorded at play time), `mechanicResults`, `interrupted`, `stageEvents`, `reasoning` (persisted thinking), `tension` ("escalate" | "hold" | "release", null on old data).
+**Turn / TurnVariant** — a turn = playerInput + variants[] + `activeVariant` (persisted index of the user-selected canonical variant; old files normalize to the latest on read, regeneration moves the selection to the fresh variant). Turn 0 = the opening (playerInput ""). Variant carries: `synopsis`, `sceneOutput`, `routerDecision`, `presentNpcIds` (recorded at play time), `mechanicResults`, `interrupted`, `stageEvents`, `reasoning` (persisted thinking), `tension` ("escalate" | "hold" | "release", null on old data). The selected variant is what the UI shows AND what every context builder (visibility filter, trimmer, agency, plot summary, title, prompt preview) feeds the pipeline — display and canon are the same thing.
 
 **Memory** — `scope` ("campaign" or npc), `text`, turn ref. Extracted automatically each turn; visible + deletable in the Memories page.
 
@@ -45,7 +45,7 @@ Preview: `GET /api/campaigns/:id/prompt-preview?stage=<key>&playerInput=...` ret
 
 ## API surface
 
-`GET /api/health` · settings `GET|PUT` · campaigns `GET|POST|GET:id|PUT:id|DELETE:id` · npcs `GET|POST|PUT|DELETE /api/campaigns/:id/npcs` + `POST .../npcs/import` (body `{json}` or raw PNG bytes) · memories `GET /:id/memories`, `DELETE /:id/memories/:memoryId`, `DELETE /:id/memories` · turns `GET`, `POST` (SSE), `DELETE :index` (truncates from there), `PUT :index` (in-place edit: playerInput and/or variantId+sceneOutput) · `POST /:id/opening` (materialize turn 0), `POST /:id/opening/generate` (SSE) · `POST /:id/plan` (SSE) · prompt-templates `GET|PUT|DELETE` · prompt-preview `GET` · tracker `GET|PUT`.
+`GET /api/health` · settings `GET|PUT` · campaigns `GET|POST|GET:id|PUT:id|DELETE:id` · npcs `GET|POST|PUT|DELETE /api/campaigns/:id/npcs` + `POST .../npcs/import` (body `{json}` or raw PNG bytes) · memories `GET /:id/memories`, `DELETE /:id/memories/:memoryId`, `DELETE /:id/memories` · turns `GET`, `POST` (SSE), `DELETE :index` (truncates from there), `PUT :index` (in-place edit: playerInput and/or variantId+sceneOutput and/or activeVariant — the variant switcher's persistence) · `POST /:id/opening` (materialize turn 0), `POST /:id/opening/generate` (SSE) · `POST /:id/plan` (SSE) · prompt-templates `GET|PUT|DELETE` · prompt-preview `GET` · tracker `GET|PUT`.
 
 SSE events: `stage {line}`, `reasoning {text}`, `token {text}`, `done {turn, variant, campaignTitle?, trackerState?}`, `error {message}`.
 

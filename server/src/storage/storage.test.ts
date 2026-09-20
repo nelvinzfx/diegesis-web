@@ -138,6 +138,7 @@ describe('TurnStorage', () => {
       index,
       playerInput: `input ${index}`,
       variants: [],
+      activeVariant: 0,
       createdAt: 1,
     });
     await hub.turns.save('c1', turn(2));
@@ -149,12 +150,13 @@ describe('TurnStorage', () => {
     expect(await hub.turns.listIndices('c1')).toEqual([0, 2, 10]);
   });
 
-  it('appendVariant grows variants[] only', async () => {
+  it('appendVariant grows variants[] and moves the selection to it', async () => {
     const root = await tmpRoot();
     const hub = createStorageHub(root);
     await hub.turns.save('c1', {
       index: 0,
       playerInput: 'open the door',
+      activeVariant: 0,
       variants: [
         {
           id: 'v1',
@@ -191,18 +193,74 @@ describe('TurnStorage', () => {
       ['v2', 'second', true],
     ]);
     expect(turn?.playerInput).toBe('open the door');
+    // The fresh variant becomes the selected one.
+    expect(turn?.activeVariant).toBe(1);
     await expect(hub.turns.appendVariant('c1', 9, {
       id: 'v3', synopsis: '', sceneOutput: '', routerDecision: null,
       presentNpcIds: [], mechanicResults: [], interrupted: false, timestamp: 3,
       stageEvents: [], tension: null, reasoning: null,
     })).rejects.toThrow(/not found/);
   });
+  it('normalizes a missing activeVariant to the latest variant on read', async () => {
+    const root = await tmpRoot();
+    const hub = createStorageHub(root);
+    // A turn file written before the activeVariant field existed.
+    const dir = path.join(root, 'campaigns', 'c1', 'turns');
+    await fs.mkdir(dir, { recursive: true });
+    const legacyVariant = (id: string) => ({
+      id, synopsis: '', sceneOutput: id, routerDecision: null,
+      presentNpcIds: [], mechanicResults: [], interrupted: false, timestamp: 1,
+      stageEvents: [], tension: null, reasoning: null,
+    });
+    await fs.writeFile(
+      path.join(dir, '000000.json'),
+      JSON.stringify({
+        index: 0,
+        playerInput: 'old file',
+        variants: [legacyVariant('a'), legacyVariant('b')],
+        createdAt: 1,
+      }),
+    );
+    const turn = await hub.turns.get('c1', 0);
+    expect(turn?.activeVariant).toBe(1);
+  });
+
+  it('clamps an out-of-range activeVariant on read', async () => {
+    const root = await tmpRoot();
+    const hub = createStorageHub(root);
+    await hub.turns.save('c1', {
+      index: 0,
+      playerInput: 'x',
+      variants: [],
+      activeVariant: 7,
+      createdAt: 1,
+    });
+    expect((await hub.turns.get('c1', 0))?.activeVariant).toBe(0);
+  });
+
+  it('round-trips an explicit activeVariant selection', async () => {
+    const root = await tmpRoot();
+    const hub = createStorageHub(root);
+    const variant = (id: string) => ({
+      id, synopsis: '', sceneOutput: id, routerDecision: null,
+      presentNpcIds: [], mechanicResults: [], interrupted: false, timestamp: 1,
+      stageEvents: [], tension: null, reasoning: null,
+    });
+    await hub.turns.save('c1', {
+      index: 0,
+      playerInput: 'x',
+      variants: [variant('a'), variant('b'), variant('c')],
+      activeVariant: 1,
+      createdAt: 1,
+    });
+    expect((await hub.turns.get('c1', 0))?.activeVariant).toBe(1);
+  });
 
   it('deleteFrom truncates the turn and every later turn', async () => {
     const root = await tmpRoot();
     const hub = createStorageHub(root);
     for (const index of [0, 1, 2, 3]) {
-      await hub.turns.save('c1', { index, playerInput: 'x', variants: [], createdAt: 1 });
+      await hub.turns.save('c1', { index, playerInput: 'x', variants: [], activeVariant: 0, createdAt: 1 });
     }
     const removed = await hub.turns.deleteFrom('c1', 2);
     expect(removed).toEqual([2, 3]);
@@ -214,7 +272,7 @@ describe('TurnStorage', () => {
     const hub = createStorageHub(root);
     await Promise.all(
       Array.from({ length: 12 }, (_, i) =>
-        hub.turns.save('c1', { index: i, playerInput: `p${i}`, variants: [], createdAt: 1 }),
+        hub.turns.save('c1', { index: i, playerInput: `p${i}`, variants: [], activeVariant: 0, createdAt: 1 }),
       ),
     );
     expect(await hub.turns.listIndices('c1')).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);

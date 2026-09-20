@@ -21,6 +21,7 @@ import {
   type TurnVariant,
   type TrackerState,
 } from '../shared/types.js';
+import { activeVariantOf } from '../shared/types.js';
 import type { AiCaller } from './ai-caller.js';
 import type { PromptTemplateGetter } from './prompt-templates.js';
 import * as DeckMechanics from './deck.js';
@@ -443,6 +444,7 @@ export class PipelineOrchestrator {
           index: turnIndex,
           playerInput,
           variants: [variant],
+          activeVariant: 0,
           createdAt: Date.now(),
         });
       } else if (targetTurnIndex !== null) {
@@ -459,6 +461,7 @@ export class PipelineOrchestrator {
           index: nextFree,
           playerInput,
           variants: [variant],
+          activeVariant: 0,
           createdAt: Date.now(),
         });
       }
@@ -541,7 +544,7 @@ export async function resolveTrackerTarget(
  */
 function witnessedTurnsFor(npcId: string, allTurns: Turn[]): Turn[] {
   return allTurns.filter((turn) => {
-    const variant = turn.variants[turn.variants.length - 1];
+    const variant = activeVariantOf(turn);
     return variant !== undefined && variant.presentNpcIds.includes(npcId);
   });
 }
@@ -555,7 +558,7 @@ export function buildTensionHistory(allTurns: Turn[], limit: number = 5): string
   return allTurns
     .slice(-limit)
     .map((turn) => {
-      const variant = turn.variants[turn.variants.length - 1];
+      const variant = activeVariantOf(turn);
       const tension = variant?.tension ?? null;
       return tension !== null && isTensionValue(tension) ? `turn ${turn.index}: ${tension}` : null;
     })
@@ -571,7 +574,7 @@ function buildRecentSummary(allTurns: Turn[], limit: number = 6): string {
   return allTurns
     .slice(-limit)
     .map((turn) => {
-      const variant = turn.variants[turn.variants.length - 1];
+      const variant = activeVariantOf(turn);
       const synopsis = variant ? variant.synopsis : '';
       return `- ${turn.playerInput} -> ${synopsis}`;
     })

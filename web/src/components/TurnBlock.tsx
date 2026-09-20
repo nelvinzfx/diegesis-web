@@ -42,7 +42,7 @@ export function TurnBlock({
   isSelected: boolean;
   onSelect: () => void;
 }): ReactNode {
-  const { regenerate, send, editTurn, deleteFrom, cycleVariant, variantByTurn, streaming } =
+  const { regenerate, send, editTurn, deleteFrom, cycleVariant, streaming } =
     useActiveCampaign();
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -98,7 +98,7 @@ export function TurnBlock({
   };
 
   const shownCount = turn.variants.length + (live && variant === null ? 1 : 0);
-  const currentIdx = Math.min(variantByTurn[turn.index] ?? 0, Math.max(0, turn.variants.length - 1));
+  const currentIdx = Math.min(turn.activeVariant, Math.max(0, turn.variants.length - 1));
 
   return (
     <article

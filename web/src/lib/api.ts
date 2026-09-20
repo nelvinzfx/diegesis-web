@@ -177,6 +177,17 @@ export function editTurn(
     { method: 'PUT', body: JSON.stringify(fields) },
   );
 }
+/** Persists the user's selected (canonical) variant for a turn. */
+export function setActiveVariant(
+  campaignId: string,
+  index: number,
+  activeVariant: number,
+): Promise<{ turn: Turn }> {
+  return request<{ turn: Turn }>(
+    `/campaigns/${encodeURIComponent(campaignId)}/turns/${index}`,
+    { method: 'PUT', body: JSON.stringify({ activeVariant }) },
+  );
+}
 
 export interface TurnStreamParams {
   playerInput: string;

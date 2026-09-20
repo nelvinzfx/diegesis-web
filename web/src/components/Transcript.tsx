@@ -22,7 +22,6 @@ export function Transcript(): ReactNode {
     streaming,
     selectedTurnIndex,
     selectTurn,
-    variantByTurn,
     apiKeyMissing,
     campaign,
     npcs,
@@ -78,7 +77,7 @@ export function Transcript(): ReactNode {
                 streaming !== null &&
                 liveTargetIndex !== null &&
                 liveTargetIndex === turn.index;
-              const variant = pickVariant(turn, variantByTurn[turn.index] ?? 0, liveThisTurn);
+              const variant = pickVariant(turn, turn.activeVariant, liveThisTurn);
               return (
                 <TurnBlock
                   key={`${turn.index}-${turn.createdAt}`}

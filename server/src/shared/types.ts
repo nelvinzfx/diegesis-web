@@ -107,7 +107,32 @@ export interface Turn {
   index: number;
   playerInput: string;
   variants: TurnVariant[];
+  /**
+   * Index into variants[] of the user-selected canonical variant: what the
+   * UI displays and what every context builder feeds the pipeline. Persisted
+   * per turn. Files written before this field existed load without it and
+   * storage normalizes them to the latest variant (pre-feature behavior,
+   * where the newest variant was always canonical). Regeneration moves the
+   * selection to the freshly appended variant.
+   */
+  activeVariant: number;
   createdAt: number;
+}
+
+/**
+ * The canonical variant of a turn, honoring the persisted user selection.
+ * Defensive: a missing or out-of-range selection falls back to the latest
+ * variant, so old data and hand-built fixtures behave like the pre-feature
+ * engine.
+ */
+export function activeVariantOf(turn: Turn): TurnVariant | undefined {
+  if (turn.variants.length === 0) return undefined;
+  const selected = turn.activeVariant;
+  const index =
+    Number.isInteger(selected) && selected >= 0
+      ? Math.min(selected, turn.variants.length - 1)
+      : turn.variants.length - 1;
+  return turn.variants[index];
 }
 
 // ---- Narrative status board (per-campaign, web-only) ------------------------

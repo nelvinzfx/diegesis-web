@@ -61,13 +61,7 @@ export function InspectorPanel(): ReactNode {
 // ---- IDLE -------------------------------------------------------------------
 
 function IdleInspector(): ReactNode {
-  const {
-    turns,
-    selectedTurnIndex,
-    variantByTurn,
-    streaming,
-    setView,
-  } = useActiveCampaign();
+  const { turns, selectedTurnIndex, streaming, setView } = useActiveCampaign();
 
   if (selectedTurnIndex === null) {
     return (
@@ -89,14 +83,14 @@ function IdleInspector(): ReactNode {
 
   const variant: TurnVariant | null =
     turn.variants.length > 0
-      ? turn.variants[Math.min(variantByTurn[turn.index] ?? 0, turn.variants.length - 1)]
+      ? turn.variants[Math.min(turn.activeVariant, turn.variants.length - 1)]
       : null;
 
   return (
     <div className="flex h-full flex-col gap-5 overflow-y-auto p-4 pb-8">
       <StatusSection />
       <SectionLabel>
-        Turn {turn.index} · variant {Math.min(variantByTurn[turn.index] ?? 0, Math.max(0, turn.variants.length - 1)) + 1}
+        Turn {turn.index} · variant {Math.min(turn.activeVariant, Math.max(0, turn.variants.length - 1)) + 1}
       </SectionLabel>
 
       {variant === null ? (

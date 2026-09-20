@@ -8,6 +8,7 @@
 import type { AiCaller } from '../engine/ai-caller.js';
 import { applyTemplate, resolvePrompt, type PromptTemplateGetter } from '../engine/prompt-templates.js';
 import type { AppSettings, Campaign, Turn } from '../shared/types.js';
+import { activeVariantOf } from '../shared/types.js';
 
 export const MAX_TITLE_CHARS = 40;
 
@@ -80,7 +81,8 @@ export async function maybeGenerateTitle(args: {
 }): Promise<string | null> {
   if (!isAutoTitleDue(args.campaign)) return null;
   if (args.turn === null || args.turn.variants.length === 0) return null;
-  const variant = args.turn.variants[args.turn.variants.length - 1];
+  const variant = activeVariantOf(args.turn);
+  if (variant === undefined) return null;
   const playerInput = args.turn.playerInput.slice(0, 600);
   const synopsis = (variant.synopsis ?? '').slice(0, 600);
   const language = args.settings.language?.trim() || 'English';

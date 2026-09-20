@@ -2,8 +2,9 @@
  * Turn persistence: data/campaigns/<campaignId>/turns/<zero-padded index>.json.
  *
  * One file per turn; immutable once written except variants[] growth (append
- * only). Deletes truncate: removing turn N also removes every turn > N —
- * state is derived, same semantics as the Android app.
+ * only) and the activeVariant selection. Deletes truncate: removing turn N
+ * also removes every turn > N — state is derived, same semantics as the
+ * Android app.
  */
 
 import { promises as fs } from 'node:fs';
@@ -60,6 +61,17 @@ export class TurnStorage {
       for (const variant of turn.variants) {
         if (variant.tension === undefined) variant.tension = null;
       }
+      // Turns written before the activeVariant field existed: the latest
+      // variant was canonical then, so that is the normalized selection.
+      // Out-of-range values clamp the same way.
+      const last = turn.variants.length - 1;
+      if (
+        !Number.isInteger(turn.activeVariant) ||
+        turn.activeVariant < 0 ||
+        turn.activeVariant > last
+      ) {
+        turn.activeVariant = Math.max(0, last);
+      }
     }
     return turn;
   }
@@ -76,6 +88,8 @@ export class TurnStorage {
       const existing = await this.get(campaignId, index);
       if (!existing) throw new Error(`Turn ${index} not found in campaign ${campaignId}`);
       existing.variants.push(variant);
+      // A freshly generated variant becomes the selected one.
+      existing.activeVariant = existing.variants.length - 1;
       await this.saveLocked(campaignId, existing);
     });
   }

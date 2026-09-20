@@ -62,7 +62,8 @@ export function registerTurnRoutes(router: Router, ctx: RouteContext): void {
 
   // In-place edit of an existing turn: the player's cue text and/or one
   // variant's scene prose, without rerunning anything. variantId picks the
-  // variant to edit; omitted = the latest variant.
+  // variant to edit; omitted = the latest variant. activeVariant persists
+  // the user's selected canonical variant (the variant switcher writes it).
   router.put(
     '/campaigns/:id/turns/:index',
     wrap(async (req, res) => {
@@ -77,11 +78,17 @@ export function registerTurnRoutes(router: Router, ctx: RouteContext): void {
         playerInput?: unknown;
         variantId?: unknown;
         sceneOutput?: unknown;
+        activeVariant?: unknown;
       };
       const editCue = typeof body.playerInput === 'string';
       const editProse = typeof body.sceneOutput === 'string';
-      if (!editCue && !editProse) {
+      const editActive = body.activeVariant !== undefined;
+      if (!editCue && !editProse && !editActive) {
         res.status(400).json({ ok: false, error: 'nothing_to_update' });
+        return;
+      }
+      if (editActive && !Number.isInteger(body.activeVariant)) {
+        res.status(400).json({ ok: false, error: 'invalid_variant_index' });
         return;
       }
       if (editCue && (body.playerInput as string).trim().length === 0 && index !== 0) {
@@ -94,6 +101,14 @@ export function registerTurnRoutes(router: Router, ctx: RouteContext): void {
         return;
       }
       if (editCue) turn.playerInput = (body.playerInput as string).trim();
+      if (editActive) {
+        const selected = body.activeVariant as number;
+        if (selected < 0 || selected >= turn.variants.length) {
+          res.status(400).json({ ok: false, error: 'invalid_variant_index' });
+          return;
+        }
+        turn.activeVariant = selected;
+      }
       if (editProse) {
         const variantId = typeof body.variantId === 'string' ? body.variantId : null;
         const variant =
@@ -180,6 +195,7 @@ export function registerTurnRoutes(router: Router, ctx: RouteContext): void {
               index: -1,
               playerInput,
               variants: [variant],
+              activeVariant: 0,
               createdAt: Date.now(),
             } satisfies Turn),
           variant,

@@ -87,8 +87,10 @@ interface ActiveCampaignValue {
   selectedTurnIndex: number | null;
   selectTurn: (index: number | null) => void;
 
-  /** Currently displayed variant index per turn index. */
-  variantByTurn: Record<number, number>;
+  /**
+   * Moves a turn's persisted variant selection (optimistic; reverts on
+   * failure). The selection is also the engine's canonical variant.
+   */
   cycleVariant: (turnIndex: number, delta: number) => void;
 
   streaming: StreamState | null;
@@ -152,7 +154,6 @@ export function ActiveCampaignProvider({ children }: { children: ReactNode }) {
   const [turns, setTurns] = useState<Turn[]>([]);
   const [turnsLoading, setTurnsLoading] = useState(false);
   const [selectedTurnIndex, setSelectedTurnIndex] = useState<number | null>(null);
-  const [variantByTurn, setVariantByTurn] = useState<Record<number, number>>({});
   const [streaming, setStreaming] = useState<StreamState | null>(null);
   const [streamError, setStreamError] = useState<string | null>(null);
   const [settings, setSettings] = useState<PublicSettingsView | null>(null);
@@ -206,7 +207,6 @@ export function ActiveCampaignProvider({ children }: { children: ReactNode }) {
       .then((t) => {
         if (!cancelled) {
           setTurns(t);
-          setVariantByTurn({});
           setSelectedTurnIndex(null);
         }
       })
@@ -526,12 +526,28 @@ export function ActiveCampaignProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const cycleVariant = useCallback((turnIndex: number, delta: number) => {
-    setVariantByTurn((prev) => {
-      const next = Math.max(0, (prev[turnIndex] ?? 0) + delta);
-      return next === (prev[turnIndex] ?? 0) ? prev : { ...prev, [turnIndex]: next };
-    });
-  }, []);
+  const cycleVariant = useCallback(
+    (turnIndex: number, delta: number) => {
+      const turn = turns.find((t) => t.index === turnIndex);
+      if (turn === undefined || turn.variants.length === 0) return;
+      const current = Math.min(turn.activeVariant, turn.variants.length - 1);
+      const next = Math.min(Math.max(0, current + delta), turn.variants.length - 1);
+      if (next === current) return;
+      // Optimistic: flip the selection locally, persist, revert on failure.
+      setTurns((prev) =>
+        prev.map((t) => (t.index === turnIndex ? { ...t, activeVariant: next } : t)),
+      );
+      if (campaignId === null) return;
+      api.setActiveVariant(campaignId, turnIndex, next).catch((error: unknown) => {
+        setTurns((prev) =>
+          prev.map((t) => (t.index === turnIndex ? { ...t, activeVariant: current } : t)),
+        );
+        const message = error instanceof Error ? error.message : String(error);
+        toast.danger(message, { timeout: 8000 });
+      });
+    },
+    [turns, campaignId],
+  );
 
   const campaign = useMemo(
     () => campaigns.find((c) => c.id === campaignId) ?? null,
@@ -568,7 +584,6 @@ export function ActiveCampaignProvider({ children }: { children: ReactNode }) {
       refreshTracker,
       selectedTurnIndex,
       selectTurn: setSelectedTurnIndex,
-      variantByTurn,
       cycleVariant,
       streaming,
       streamError,
@@ -607,7 +622,6 @@ export function ActiveCampaignProvider({ children }: { children: ReactNode }) {
       refreshMemories,
       refreshTracker,
       selectedTurnIndex,
-      variantByTurn,
       cycleVariant,
       streaming,
       streamError,

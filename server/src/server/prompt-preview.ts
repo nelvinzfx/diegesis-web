@@ -6,6 +6,7 @@
  */
 
 import type { AppSettings, Campaign, MemoryEntry, Npc, Turn } from '../shared/types.js';
+import { activeVariantOf } from '../shared/types.js';
 import type { StorageHub } from '../storage/hub.js';
 import { getterFromOverrides } from '../engine/prompt-templates.js';
 import { buildTensionHistory } from '../engine/orchestrator.js';
@@ -277,7 +278,7 @@ async function pickAgencyNpc(
 
 function witnessedTurnsFor(npcId: string, allTurns: Turn[]): Turn[] {
   return allTurns.filter((turn) => {
-    const variant = turn.variants[turn.variants.length - 1];
+    const variant = activeVariantOf(turn);
     return variant !== undefined && variant.presentNpcIds.includes(npcId);
   });
 }
@@ -286,7 +287,7 @@ function witnessedTurnsFor(npcId: string, allTurns: Turn[]): Turn[] {
 function formatWitnessed(witnessed: Turn[]): string {
   return witnessed
     .map((turn) => {
-      const variant = turn.variants[turn.variants.length - 1];
+      const variant = activeVariantOf(turn);
       const synopsis = variant ? variant.synopsis : '';
       return synopsis.length > 0
         ? `**Player:** ${turn.playerInput}\n${synopsis}`
@@ -301,7 +302,7 @@ function buildRecentSummary(allTurns: Turn[], limit: number = 6): string {
   return allTurns
     .slice(-limit)
     .map((turn) => {
-      const variant = turn.variants[turn.variants.length - 1];
+      const variant = activeVariantOf(turn);
       const synopsis = variant ? variant.synopsis : '';
       return `- ${turn.playerInput} -> ${synopsis}`;
     })

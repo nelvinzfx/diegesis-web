@@ -10,6 +10,7 @@
  */
 
 import type { Turn } from '../shared/types.js';
+import { activeVariantOf } from '../shared/types.js';
 
 /**
  * Trim the turn list to fit within the estimated token budget.
@@ -43,10 +44,10 @@ export function trimToFit(turns: Turn[], budgetTokens: number): Turn[] {
   return kept.reverse();
 }
 
-/** Estimate the character size of a turn (input + latest scene output). */
+/** Estimate the character size of a turn (input + selected scene output). */
 function estimateTurnSize(turn: Turn): number {
   const inputSize = turn.playerInput.length;
-  const lastVariant = turn.variants[turn.variants.length - 1];
+  const lastVariant = activeVariantOf(turn);
   const outputSize = lastVariant ? lastVariant.sceneOutput.length : 0;
   return inputSize + outputSize;
 }

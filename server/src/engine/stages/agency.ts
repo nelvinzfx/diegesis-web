@@ -6,6 +6,7 @@
 import type { AiCaller } from '../ai-caller.js';
 import { resolvePrompt, type PromptTemplateGetter } from '../prompt-templates.js';
 import type { Npc, NpcAgency, Turn } from '../../shared/types.js';
+import { activeVariantOf } from '../../shared/types.js';
 import { asRecord, requireString } from './decode.js';
 
 export const DEFAULT_SYSTEM_PROMPT = `You maintain the inner life of an NPC. Given what THIS NPC has witnessed (below) and their current goal, produce their updated immediate goal and emotional stance.
@@ -104,7 +105,7 @@ function buildWitnessedContext(witnessedTurns: Turn[]): string {
   if (witnessedTurns.length === 0) return 'Nothing yet.';
   return witnessedTurns
     .map((turn) => {
-      const variant = turn.variants[turn.variants.length - 1];
+      const variant = activeVariantOf(turn);
       if (variant) {
         return `**Player:** ${turn.playerInput}\n${variant.synopsis}`;
       }

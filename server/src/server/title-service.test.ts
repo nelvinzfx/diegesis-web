@@ -24,6 +24,7 @@ function turn(): Turn {
   return {
     index: 0,
     playerInput: 'I chase her through the crowd.',
+    activeVariant: 0,
     createdAt: 0,
     variants: [
       {

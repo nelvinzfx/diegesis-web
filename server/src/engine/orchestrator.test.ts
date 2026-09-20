@@ -269,6 +269,7 @@ async function saveSeedTurn(
     index: overrides.index,
     playerInput: overrides.playerInput,
     variants: overrides.variants,
+    activeVariant: 0,
     createdAt: 0,
   });
 }
@@ -506,6 +507,7 @@ describe('PipelineOrchestrator', () => {
     await stores.saveTurn(campaignId, {
       index: 0,
       playerInput: 'PLOT_WITH_BOB',
+      activeVariant: 0,
       createdAt: 0,
       variants: [variantOf({ sceneOutput: 'BOB_ONLY_SCENE', presentNpcIds: ['bob'], synopsis: 'bob saw this' })],
     });

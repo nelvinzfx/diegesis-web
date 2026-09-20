@@ -34,6 +34,7 @@ function mkTurn(
   return {
     index,
     playerInput,
+    activeVariant: 0,
     variants: [
       {
         id: `variant-${index}`,
